@@ -17,7 +17,7 @@ function sendEmail($to_email, $to_name, $subject, $message) {
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
         $mail->Username   = 'maazahmadyousafzai557@gmail.com';
-        $mail->Password   = 'kugjxmkmqgbsmcnq'; // Updated Gmail App Password
+        $mail->Password   = "YOUR_GMAIL_APP_PASSWORD"
         $mail->SMTPSecure = 'tls';
         $mail->Port       = 587;
 
