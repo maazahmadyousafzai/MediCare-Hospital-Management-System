@@ -2,14 +2,14 @@
 
 MediCare is a web-based hospital management and telemedicine project developed as a final-year Computer Science project at Government Degree College Hayatabad, affiliated with the University of Peshawar, Pakistan.
 
-The application provides separate workflows for patients, doctors, and administrators, including appointment booking and management, digital prescriptions, doctor feedback, manual payment-reference review, email notifications, and a video-call integration interface.
+The application provides separate workflows for patients, doctors, and administrators, including appointment booking and management, prescription records, doctor feedback, manual payment-reference review, email notifications, and a video-call interface (currently disabled).
 
 ## Main Features
 
 - **Patient module:** Registration, login, doctor browsing, appointment booking, appointment history, profile management, payment workflow, video consultation access, prescription viewing, and doctor ratings.
 - **Doctor module:** Doctor registration and approval workflow, profile and appointment management, patient-related actions, video consultations, and prescription creation.
 - **Admin module:** Dashboard and management workflows for doctors, patients, and appointments.
-- **Video consultations:** ZEGOCLOUD integration interface is present, but calls are intentionally disabled until secure server-side token generation is configured.
+- **Video consultations:** The interface is present, but live calls and video appointment booking are disabled until secure server-side token generation is implemented and configured.
 - **Digital prescriptions:** Doctors can create prescriptions with diagnosis, medicines, instructions, and follow-up dates.
 - **Email notifications:** PHPMailer-based SMTP email functionality (requires valid SMTP configuration).
 - **Manual payment review:** Patients can submit a JazzCash, Easypaisa, or bank-transfer reference; payments remain pending until an administrator verifies them. This is not a live payment-provider integration.
@@ -87,7 +87,7 @@ The ZEGOCLOUD AppSign was removed from client-side code because it is a signing 
 
 - The payment workflow records submitted JazzCash/Easypaisa/bank references as `pending`; an administrator must verify the transaction in the provider account before marking it paid. It does **not** connect to live payment-provider APIs. Configure and verify recipient account details privately before accepting any real payment.
 - The public SQL dump is schema-only and contains no sample patient, payment, appointment, rating, or prescription records.
-- The landing page currently displays illustrative figures (for example, specialist and patient counts). These should not be interpreted as verified live platform statistics.
+- The landing page uses descriptive capability labels instead of unverified patient, specialist, or usage statistics.
 - GitHub Actions runs PHP syntax checks on application PHP files. This is not an end-to-end test: database workflows, SMTP delivery, payment verification, and video calls still require local integration testing.
 - This is an academic project and is not certified as a production-ready clinical system. Complete privacy, clinical safety, deployment, and penetration testing before real-world use.
 
