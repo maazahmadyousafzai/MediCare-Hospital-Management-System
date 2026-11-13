@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
 // Fetch all doctor records along with their profile metadata
 $doctors = mysqli_query($conn,
     "SELECT u.id, u.fullname, u.email, u.phone, u.status, u.created_at,
-            d.specialization, d.qualification, d.experience
+            d.status AS doctor_status, d.specialization, d.qualification, d.experience
      FROM users u
      JOIN doctors d ON u.id = d.user_id
      WHERE u.role='doctor'
@@ -351,8 +351,8 @@ $doctors = mysqli_query($conn,
     <?php
     // Summary Statistics Queries
     $doc_total = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users WHERE role='doctor'"));
-    $doc_active = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users WHERE role='doctor' AND status='active'"));
-    $doc_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users WHERE role='doctor' AND status='pending'"));
+    $doc_active = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users u INNER JOIN doctors d ON d.user_id=u.id WHERE u.role='doctor' AND u.status='active' AND d.status='active'"));
+    $doc_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users u INNER JOIN doctors d ON d.user_id=u.id WHERE u.role='doctor' AND (u.status='pending' OR (u.status='active' AND d.status='pending'))"));
     $doc_blocked = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt FROM users WHERE role='doctor' AND status='blocked'"));
     ?>
 
@@ -448,13 +448,23 @@ $doctors = mysqli_query($conn,
                         <td><span class="badge bg-info bg-opacity-10 text-info fw-semibold px-2 py-1"><?php echo htmlspecialchars($row['specialization']); ?></span></td>
                         <td><span class="fw-semibold text-dark"><?php echo htmlspecialchars($row['qualification']); ?></span></td>
                         <td><strong><?php echo htmlspecialchars($row['experience']); ?></strong> yrs</td>
+                        <?php
+                            // A doctor is pending if either the account or doctor profile is pending.
+                            // A blocked user remains blocked even if the doctor profile was previously active.
+                            $displayStatus = ($row['status'] === 'active') ? $row['doctor_status'] : $row['status'];
+                        ?>
+                        <td>
+                            <span class="badge-pill badge-<?php echo htmlspecialchars($displayStatus, ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars(ucfirst($displayStatus), ENT_QUOTES, 'UTF-8'); ?>
+                            </span>
+                        </td>
                         <td>
                             <form method="POST" action="doctor_action.php" class="d-inline">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
-                                <?php if ($row['status'] === 'pending'): ?>
+                                <?php if ($displayStatus === 'pending'): ?>
                                     <button name="action" value="approve" class="btn-action btn-approve"><i class="fas fa-check"></i> Approve</button>
-                                <?php elseif ($row['status'] === 'active'): ?>
+                                <?php elseif ($displayStatus === 'active'): ?>
                                     <button name="action" value="block" class="btn-action btn-block" onclick="return confirm('Block this doctor account?')"><i class="fas fa-ban"></i> Block</button>
                                 <?php else: ?>
                                     <button name="action" value="unblock" class="btn-action btn-unblock"><i class="fas fa-unlock"></i> Unblock</button>
