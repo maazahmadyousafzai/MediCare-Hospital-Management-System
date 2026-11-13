@@ -1,43 +1,46 @@
 <?php
 session_start();
-include '../db/connection.php';
+require_once '../db/connection.php';
 
-// Access Control: Ensure user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../login.php");
+$role = $_SESSION['user_role'] ?? '';
+$userId = (int) ($_SESSION['user_id'] ?? 0);
+if ($userId < 1 || !in_array($role, ['patient', 'doctor', 'admin'], true)) {
+    header('Location: ../login.php');
     exit();
 }
-
-if (!isset($_GET['id'])) {
-    echo "<script>alert('Invalid Prescription Request!'); window.history.back();</script>";
-    exit();
+$presId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$presId) {
+    http_response_code(400);
+    exit('Invalid prescription request.');
 }
 
-$pres_id = intval($_GET['id']);
-
-// Fetch complete prescription record with doctor, patient & appointment context
-$query = "SELECT p.*,
-                 doc.fullname as doctor_name,
-                 doc.email as doctor_email,
-                 pat.fullname as patient_name,
-                 pat.phone as patient_phone,
-                 d.specialization, d.qualification,
-                 a.appointment_date, a.appointment_time
-          FROM prescriptions p
-          JOIN users doc ON p.doctor_id = doc.id
-          JOIN users pat ON p.patient_id = pat.id
-          LEFT JOIN doctors d ON p.doctor_id = d.user_id
-          JOIN appointments a ON p.appointment_id = a.id
-          WHERE p.id = $pres_id";
-
-$result = mysqli_query($conn, $query);
-$pres   = mysqli_fetch_assoc($result);
+$sql = "SELECT p.*,
+               doc.fullname AS doctor_name,
+               doc.email AS doctor_email,
+               pat.fullname AS patient_name,
+               pat.phone AS patient_phone,
+               d.specialization, d.qualification,
+               a.appointment_date, a.appointment_time
+        FROM prescriptions p
+        JOIN users doc ON p.doctor_id = doc.id
+        JOIN users pat ON p.patient_id = pat.id
+        LEFT JOIN doctors d ON p.doctor_id = d.user_id
+        JOIN appointments a ON p.appointment_id = a.id
+        WHERE p.id = ?
+          AND ((? = 'patient' AND p.patient_id = ?)
+            OR (? = 'doctor' AND p.doctor_id = ?)
+            OR ? = 'admin')
+        LIMIT 1";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, 'isissi', $presId, $role, $userId, $role, $userId, $role);
+mysqli_stmt_execute($stmt);
+$pres = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+mysqli_stmt_close($stmt);
 
 if (!$pres) {
-    echo "<script>alert('Prescription record not found!'); window.history.back();</script>";
-    exit();
+    http_response_code(404);
+    exit('Prescription record not found or access denied.');
 }
-
 $medicines = json_decode($pres['medicines'], true);
 ?>
 
