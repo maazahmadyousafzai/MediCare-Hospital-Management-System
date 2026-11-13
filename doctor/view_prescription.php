@@ -32,7 +32,7 @@ $sql = "SELECT p.*,
             OR ? = 'admin')
         LIMIT 1";
 $stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, 'isissi', $presId, $role, $userId, $role, $userId, $role);
+mysqli_stmt_bind_param($stmt, 'isisis', $presId, $role, $userId, $role, $userId, $role);
 mysqli_stmt_execute($stmt);
 $pres = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 mysqli_stmt_close($stmt);
