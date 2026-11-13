@@ -461,32 +461,6 @@ $doctors = mysqli_query($conn,
                                 <?php endif; ?>
                                 <button name="action" value="delete" class="btn-action btn-delete" onclick="return confirm('Permanently delete this doctor account and all linked records?')"><i class="fas fa-trash-alt"></i> Delete</button>
                             </form>
-/td>
-                        <td>
-                            <?php if($row['status'] == 'pending'): ?>
-                                <a href="doctor_action.php?id=<?php echo $row['id']; ?>&action=approve"
-                                   class="btn-action btn-approve">
-                                   <i class="fas fa-check"></i> Approve
-                                </a>
-                            <?php endif; ?>
-                            <?php if($row['status'] == 'active'): ?>
-                                <a href="doctor_action.php?id=<?php echo $row['id']; ?>&action=block"
-                                   onclick="return confirm('Block this doctor account?')"
-                                   class="btn-action btn-block">
-                                   <i class="fas fa-ban"></i> Block
-                                </a>
-                            <?php endif; ?>
-                            <?php if($row['status'] == 'blocked'): ?>
-                                <a href="doctor_action.php?id=<?php echo $row['id']; ?>&action=unblock"
-                                   class="btn-action btn-unblock">
-                                   <i class="fas fa-unlock"></i> Unblock
-                                </a>
-                            <?php endif; ?>
-                            <a href="doctor_action.php?id=<?php echo $row['id']; ?>&action=delete"
-                               onclick="return confirm('Permanently delete this doctor account and all linked records?')"
-                               class="btn-action btn-delete">
-                               <i class="fas fa-trash-alt"></i> Delete
-                            </a>
                         </td>
                     </tr>
                 <?php endwhile; ?>
