@@ -10,36 +10,68 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
 
 $doctor_id = intval($_SESSION['user_id']);
 
-// Handle Form Submission
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $fullname       = mysqli_real_escape_string($conn, trim($_POST['fullname']));
-    $phone          = mysqli_real_escape_string($conn, trim($_POST['phone']));
-    $specialization = mysqli_real_escape_string($conn, trim($_POST['specialization']));
-    $qualification  = mysqli_real_escape_string($conn, trim($_POST['qualification']));
-    $experience     = intval($_POST['experience']);
-
-    // Update Users Table
-    mysqli_query($conn, "UPDATE users SET fullname='$fullname', phone='$phone' WHERE id=$doctor_id");
-
-    // Update Doctors Table
-    mysqli_query($conn, "UPDATE doctors SET 
-                         specialization='$specialization',
-                         qualification='$qualification',
-                         experience='$experience'
-                         WHERE user_id=$doctor_id");
-
-    // Optional Password Update
-    if (!empty($_POST['new_password'])) {
-        $new_pass = md5($_POST['new_password']);
-        mysqli_query($conn, "UPDATE users SET password='$new_pass' WHERE id=$doctor_id");
-    }
-
-    $_SESSION['user_name'] = $fullname;
-
-    echo "<script>alert('Profile Updated Successfully!'); window.location='profile.php';</script>";
-    exit();
+// CSRF protection for profile updates.
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+// Handle Form Submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+        http_response_code(403);
+        exit('Invalid request token.');
+    }
+
+    $fullname = trim($_POST['fullname'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $specialization = trim($_POST['specialization'] ?? '');
+    $qualification = trim($_POST['qualification'] ?? '');
+    $experience = filter_input(INPUT_POST, 'experience', FILTER_VALIDATE_INT);
+    $newPassword = $_POST['new_password'] ?? '';
+
+    if ($fullname === '' || strlen($fullname) > 100 || strlen($phone) > 20 ||
+        strlen($specialization) > 100 || strlen($qualification) > 100 ||
+        $experience === false || $experience === null || $experience < 0 || $experience > 80 ||
+        ($newPassword !== '' && strlen($newPassword) < 8)) {
+        http_response_code(400);
+        exit('Please check the profile fields and password requirements.');
+    }
+
+    mysqli_begin_transaction($conn);
+    try {
+        $userStmt = mysqli_prepare($conn, 'UPDATE users SET fullname=?, phone=? WHERE id=? AND role="doctor"');
+        mysqli_stmt_bind_param($userStmt, 'ssi', $fullname, $phone, $doctor_id);
+        mysqli_stmt_execute($userStmt);
+        mysqli_stmt_close($userStmt);
+
+        $doctorStmt = mysqli_prepare($conn, 'UPDATE doctors SET specialization=?, qualification=?, experience=? WHERE user_id=?');
+        mysqli_stmt_bind_param($doctorStmt, 'ssii', $specialization, $qualification, $experience, $doctor_id);
+        mysqli_stmt_execute($doctorStmt);
+        mysqli_stmt_close($doctorStmt);
+
+        if ($newPassword !== '') {
+            $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $passwordStmt = mysqli_prepare($conn, 'UPDATE users SET password=? WHERE id=? AND role="doctor"');
+            mysqli_stmt_bind_param($passwordStmt, 'si', $passwordHash, $doctor_id);
+            mysqli_stmt_execute($passwordStmt);
+            mysqli_stmt_close($passwordStmt);
+        }
+
+        mysqli_commit($conn);
+        $_SESSION['user_name'] = $fullname;
+        if ($newPassword !== '') {
+            session_regenerate_id(true);
+        }
+        header('Location: profile.php?updated=1');
+        exit();
+    } catch (Throwable $e) {
+        mysqli_rollback($conn);
+        error_log('MediCare doctor profile update failed: ' . $e->getMessage());
+        http_response_code(500);
+        exit('Unable to update profile right now.');
+    }
+}
 // Fetch Doctor Profile Information
 $user_res = mysqli_query($conn,
     "SELECT u.*, d.specialization, d.qualification, d.experience
@@ -446,6 +478,7 @@ $avg = mysqli_fetch_assoc(mysqli_query($conn,
 
         <!-- Update Form -->
         <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
 
             <div class="section-title">
                 <i class="fas fa-id-card text-teal" style="color: var(--primary-color);"></i>
