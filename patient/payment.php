@@ -8,6 +8,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
     exit();
 }
 
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
+
 if (!isset($_GET['id'])) {
     header("Location: my_appointments.php");
     exit();
@@ -511,125 +513,37 @@ if (mysqli_num_rows($paid_res) > 0) {
                     </div>
                 </div>
 
-                <!-- JazzCash Form -->
-                <div class="payment-form" id="form_jazzcash">
-                    <div class="p-3 border rounded-3 bg-light">
-                        <label class="form-label">JazzCash Mobile Number</label>
-                        <input type="text" class="form-control mb-3" placeholder="03XX-XXXXXXX" maxlength="11" id="jazzcash_number">
-
-                        <label class="form-label">Account MPIN</label>
-                        <input type="password" class="form-control mb-3" placeholder="Enter 4-digit MPIN" maxlength="4" id="jazzcash_mpin">
-
-                        <button class="btn-pay btn-pay-jazzcash" onclick="processPayment('jazzcash')">
-                            <i class="fas fa-lock me-1"></i> Pay Rs. 500 via JazzCash
-                        </button>
-                    </div>
+                <!-- Manual payment instructions: never collect wallet PINs or card security details. -->
+                <div class="alert alert-info">
+                    <strong>Manual verification:</strong> Transfer Rs. 500 using your selected method, then enter the transaction/reference ID. Your payment remains pending until an administrator verifies it.
                 </div>
 
-                <!-- Easypaisa Card -->
-                <div class="method-card" id="card_easypaisa" onclick="selectMethod('easypaisa')">
-                    <div class="method-icon" style="background:#10b981">
-                        <i class="fas fa-wallet"></i>
+                <form method="POST" action="payment_process.php" id="manualPaymentForm">
+                    <input type="hidden" name="appointment_id" value="<?php echo (int) $appointment_id; ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                    <div class="mb-3">
+                        <label class="form-label" for="payment_method">Payment Method</label>
+                        <select class="form-control" name="payment_method" id="payment_method" required>
+                            <option value="">Select a method</option>
+                            <option value="jazzcash">JazzCash</option>
+                            <option value="easypaisa">Easypaisa</option>
+                            <option value="bank">Bank Transfer</option>
+                        </select>
                     </div>
-                    <div>
-                        <div class="method-name">Easypaisa</div>
-                        <div class="method-desc">Pay via Easypaisa Mobile Wallet Account</div>
+                    <div class="alert alert-light border">
+                        <p class="mb-1"><strong>JazzCash / Easypaisa:</strong> Use the official account details provided by the administrator.</p>
+                        <p class="mb-0"><strong>Bank transfer:</strong> Use the verified bank account details supplied by the administrator.</p>
                     </div>
-                    <div class="ms-auto text-muted">
-                        <i class="fas fa-chevron-right"></i>
+                    <div class="mb-3">
+                        <label class="form-label" for="transaction_reference">Transaction / Reference ID</label>
+                        <input type="text" class="form-control" id="transaction_reference" name="transaction_reference"
+                               minlength="5" maxlength="100" required autocomplete="off"
+                               placeholder="Enter the reference shown by your payment provider">
                     </div>
-                </div>
-
-                <!-- Easypaisa Form -->
-                <div class="payment-form" id="form_easypaisa">
-                    <div class="p-3 border rounded-3 bg-light">
-                        <label class="form-label">Easypaisa Mobile Number</label>
-                        <input type="text" class="form-control mb-3" placeholder="03XX-XXXXXXX" maxlength="11" id="easypaisa_number">
-
-                        <label class="form-label">Account PIN</label>
-                        <input type="password" class="form-control mb-3" placeholder="Enter 4-digit PIN" maxlength="4" id="easypaisa_pin">
-
-                        <button class="btn-pay btn-pay-easypaisa" onclick="processPayment('easypaisa')">
-                            <i class="fas fa-lock me-1"></i> Pay Rs. 500 via Easypaisa
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Card Payment Card -->
-                <div class="method-card" id="card_card" onclick="selectMethod('card')">
-                    <div class="method-icon" style="background:#2563eb">
-                        <i class="fas fa-credit-card"></i>
-                    </div>
-                    <div>
-                        <div class="method-name">Debit / Credit Card</div>
-                        <div class="method-desc">Visa, Mastercard, UnionPay, PayPak</div>
-                    </div>
-                    <div class="ms-auto text-muted">
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
-                </div>
-
-                <!-- Card Form -->
-                <div class="payment-form" id="form_card">
-                    <div class="p-3 border rounded-3 bg-light">
-                        <label class="form-label">16-Digit Card Number</label>
-                        <input type="text" class="form-control card-input mb-3" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" id="card_number" oninput="formatCard(this)">
-
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Expiry Date</label>
-                                <input type="text" class="form-control" placeholder="MM/YY" maxlength="5" id="card_expiry">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">CVV Code</label>
-                                <input type="password" class="form-control" placeholder="3 Digits" maxlength="3" id="card_cvv">
-                            </div>
-                        </div>
-
-                        <label class="form-label">Cardholder Name</label>
-                        <input type="text" class="form-control mb-3" placeholder="Name on card" id="card_name">
-
-                        <button class="btn-pay btn-pay-card" onclick="processPayment('card')">
-                            <i class="fas fa-lock me-1"></i> Pay Rs. 500 via Card
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Bank Transfer Card -->
-                <div class="method-card" id="card_bank" onclick="selectMethod('bank')">
-                    <div class="method-icon" style="background:#6366f1">
-                        <i class="fas fa-university"></i>
-                    </div>
-                    <div>
-                        <div class="method-name">Direct Bank Transfer</div>
-                        <div class="method-desc">HBL, Allied Bank, Meezan Bank, UBL</div>
-                    </div>
-                    <div class="ms-auto text-muted">
-                        <i class="fas fa-chevron-right"></i>
-                    </div>
-                </div>
-
-                <!-- Bank Form -->
-                <div class="payment-form" id="form_bank">
-                    <div class="p-3 border rounded-3 bg-light">
-                        <div class="bg-white p-3 rounded-3 border mb-3 fs-7">
-                            <p class="mb-1"><strong>Bank Name:</strong> HBL (Habib Bank Limited)</p>
-                            <p class="mb-1"><strong>Account Title:</strong> MediCare Health Services</p>
-                            <p class="mb-1"><strong>Account IBAN:</strong> PK36HABB0001234567890102</p>
-                            <p class="mb-0"><strong>Branch:</strong> Hayatabad, Peshawar</p>
-                        </div>
-
-                        <label class="form-label">Bank Transaction Reference / TRX ID</label>
-                        <input type="text" class="form-control mb-3" placeholder="Enter bank transaction reference" id="bank_ref">
-
-                        <button class="btn-pay btn-pay-bank" onclick="processPayment('bank')">
-                            <i class="fas fa-check-circle me-1"></i> Confirm Bank Transfer
-                        </button>
-                    </div>
-                </div>
-
-            </div>
-        </div>
+                    <button type="submit" class="btn-pay btn-pay-bank">
+                        <i class="fas fa-paper-plane me-1"></i> Submit for Admin Verification
+                    </button>
+                </form>
 
         <!-- Right Side Checkout Summary -->
         <div class="col-lg-4">
@@ -674,111 +588,14 @@ if (mysqli_num_rows($paid_res) > 0) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-let selectedMethod = '';
-
-function selectMethod(method) {
-    document.querySelectorAll('.method-card').forEach(c => c.classList.remove('selected'));
-    document.querySelectorAll('.payment-form').forEach(f => f.classList.remove('active'));
-    
-    document.getElementById('card_' + method).classList.add('selected');
-    document.getElementById('form_' + method).classList.add('active');
-    selectedMethod = method;
-}
-
-function formatCard(input) {
-    let value = input.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
-    let matches = value.match(/\d{4,16}/g);
-    let match = matches && matches[0] || '';
-    let parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-        parts.push(match.substring(i, i + 4));
+document.getElementById('manualPaymentForm').addEventListener('submit', function (event) {
+    const method = document.getElementById('payment_method').value;
+    const reference = document.getElementById('transaction_reference').value.trim();
+    if (!['jazzcash', 'easypaisa', 'bank'].includes(method) || reference.length < 5) {
+        event.preventDefault();
+        alert('Please select a valid payment method and enter a valid transaction reference.');
     }
-    input.value = parts.length ? parts.join(' ') : value;
-}
-
-function validatePakistaniNumber(num) {
-    let clean = num.replace(/[-\s]/g, '');
-    return /^03[0-9]{9}$/.test(clean);
-}
-
-function processPayment(method) {
-    if (method === 'jazzcash') {
-        let num = document.getElementById('jazzcash_number').value.trim();
-        let mpin = document.getElementById('jazzcash_mpin').value.trim();
-
-        if (!num || !mpin) {
-            alert('Please fill in all JazzCash payment details!');
-            return;
-        }
-        if (!validatePakistaniNumber(num)) {
-            alert('Invalid JazzCash number format!\nExample: 03001234567');
-            return;
-        }
-        if (mpin.length !== 4 || !/^\d{4}$/.test(mpin)) {
-            alert('MPIN must be exactly 4 numeric digits!');
-            return;
-        }
-
-    } else if (method === 'easypaisa') {
-        let num = document.getElementById('easypaisa_number').value.trim();
-        let pin = document.getElementById('easypaisa_pin').value.trim();
-
-        if (!num || !pin) {
-            alert('Please fill in all Easypaisa payment details!');
-            return;
-        }
-        if (!validatePakistaniNumber(num)) {
-            alert('Invalid Easypaisa number format!\nExample: 03001234567');
-            return;
-        }
-        if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-            alert('PIN must be exactly 4 numeric digits!');
-            return;
-        }
-
-    } else if (method === 'card') {
-        let cardNum = document.getElementById('card_number').value.replace(/\s/g,'').trim();
-        let expiry  = document.getElementById('card_expiry').value.trim();
-        let cvv     = document.getElementById('card_cvv').value.trim();
-        let name    = document.getElementById('card_name').value.trim();
-
-        if (!cardNum || !expiry || !cvv || !name) {
-            alert('Please complete all card payment fields!');
-            return;
-        }
-        if (cardNum.length !== 16 || !/^\d{16}$/.test(cardNum)) {
-            alert('Card number must be 16 digits!');
-            return;
-        }
-        if (!/^\d{2}\/\d{2}$/.test(expiry)) {
-            alert('Invalid expiry date format! Use MM/YY');
-            return;
-        }
-        if (cvv.length !== 3 || !/^\d{3}$/.test(cvv)) {
-            alert('CVV code must be exactly 3 digits!');
-            return;
-        }
-
-    } else if (method === 'bank') {
-        let ref = document.getElementById('bank_ref').value.trim();
-        if (!ref || ref.length < 5) {
-            alert('Please enter a valid bank transaction reference ID!');
-            return;
-        }
-    } else {
-        alert('Please select a payment method first!');
-        return;
-    }
-
-    // Show processing modal animation
-    var modal = new bootstrap.Modal(document.getElementById('processingModal'));
-    modal.show();
-
-    // Simulating secure gateway authorization delay (2.5 seconds)
-    setTimeout(function() {
-        window.location.href = 'payment_process.php?id=<?php echo $appointment_id; ?>&method=' + method;
-    }, 2500);
-}
+});
 </script>
 
 </body>
