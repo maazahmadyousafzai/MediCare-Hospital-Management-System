@@ -1,71 +1,113 @@
 <?php
 session_start();
-include 'db/connection.php';
+require_once 'db/connection.php';
 
-$error_msg   = '';
+$error_msg = '';
 $success_msg = '';
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $fullname  = mysqli_real_escape_string($conn, trim($_POST['fullname']));
-    $email     = mysqli_real_escape_string($conn, trim($_POST['email']));
-    $phone     = mysqli_real_escape_string($conn, trim($_POST['phone']));
-    $role      = mysqli_real_escape_string($conn, trim($_POST['role']));
-    $password  = $_POST['password'];
-    $cpassword = $_POST['cpassword'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $fullname = trim($_POST['fullname'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
+    $phone = trim($_POST['phone'] ?? '');
+    $role = trim($_POST['role'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $cpassword = $_POST['cpassword'] ?? '';
 
-    // Doctor specific fields
-    $specialization = isset($_POST['specialization']) ? mysqli_real_escape_string($conn, trim($_POST['specialization'])) : 'General Physician';
-    $qualification  = isset($_POST['qualification']) ? mysqli_real_escape_string($conn, trim($_POST['qualification'])) : 'MBBS';
-    $fee            = isset($_POST['fee']) ? floatval($_POST['fee']) : 0;
+    $specialization = trim($_POST['specialization'] ?? 'General Physician');
+    $qualification = trim($_POST['qualification'] ?? 'MBBS');
+    $fee = isset($_POST['fee']) ? (float) $_POST['fee'] : 0.0;
 
-    if (empty($fullname) || empty($email) || empty($phone) || empty($password) || empty($role)) {
-        $error_msg = "All required fields must be filled!";
+    // Public registration must never allow creation of administrator accounts.
+    if (!in_array($role, ['patient', 'doctor'], true)) {
+        $error_msg = 'Please select a valid account type.';
+    } elseif ($fullname === '' || $email === '' || $phone === '' || $password === '') {
+        $error_msg = 'All required fields must be filled!';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error_msg = "Please enter a valid email address!";
+        $error_msg = 'Please enter a valid email address!';
     } elseif ($password !== $cpassword) {
-        $error_msg = "Passwords do not match!";
+        $error_msg = 'Passwords do not match!';
     } elseif (strlen($password) < 6) {
-        $error_msg = "Password must be at least 6 characters long!";
+        $error_msg = 'Password must be at least 6 characters long!';
+    } elseif (strlen($fullname) > 100 || strlen($email) > 100 || strlen($phone) > 20) {
+        $error_msg = 'One or more fields exceed the allowed length.';
     } else {
-        // Check if email already registered
-        $check_stmt = mysqli_prepare($conn, "SELECT id FROM users WHERE email = ?");
-        mysqli_stmt_bind_param($check_stmt, "s", $email);
-        mysqli_stmt_execute($check_stmt);
-        mysqli_stmt_store_result($check_stmt);
+        $checkStmt = mysqli_prepare($conn, 'SELECT id FROM users WHERE email = ? LIMIT 1');
 
-        if (mysqli_stmt_num_rows($check_stmt) > 0) {
-            $error_msg = "An account with this email address is already registered!";
+        if (!$checkStmt) {
+            error_log('MediCare registration check failed: ' . mysqli_error($conn));
+            $error_msg = 'Registration is temporarily unavailable. Please try again.';
         } else {
-            // Hash password and insert user securely
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $insert_stmt = mysqli_prepare($conn, "INSERT INTO users (fullname, email, phone, password, role) VALUES (?, ?, ?, ?, ?)");
-            mysqli_stmt_bind_param($insert_stmt, "sssss", $fullname, $email, $phone, $hashed_password, $role);
+            mysqli_stmt_bind_param($checkStmt, 's', $email);
+            mysqli_stmt_execute($checkStmt);
+            mysqli_stmt_store_result($checkStmt);
+            $emailExists = mysqli_stmt_num_rows($checkStmt) > 0;
+            mysqli_stmt_close($checkStmt);
 
-            if (mysqli_stmt_execute($insert_stmt)) {
-                $user_id = mysqli_insert_id($conn);
-
-                // If registering as Doctor, insert extra details in doctors table safely
-                if ($role === 'doctor') {
-                    // Check if 'fee' column exists in doctors table dynamically
-                    $col_check = mysqli_query($conn, "SHOW COLUMNS FROM doctors LIKE 'fee'");
-                    
-                    if ($col_check && mysqli_num_rows($col_check) > 0) {
-                        $doc_stmt = mysqli_prepare($conn, "INSERT INTO doctors (user_id, specialization, qualification, fee) VALUES (?, ?, ?, ?)");
-                        mysqli_stmt_bind_param($doc_stmt, "issd", $user_id, $specialization, $qualification, $fee);
-                    } else {
-                        $doc_stmt = mysqli_prepare($conn, "INSERT INTO doctors (user_id, specialization, qualification) VALUES (?, ?, ?)");
-                        mysqli_stmt_bind_param($doc_stmt, "iss", $user_id, $specialization, $qualification);
-                    }
-                    mysqli_stmt_execute($doc_stmt);
-                }
-
-                echo "<script>
-                        alert('Registration successful! Please log in with your credentials.');
-                        window.location='login.php';
-                      </script>";
-                exit();
+            if ($emailExists) {
+                $error_msg = 'An account with this email address is already registered!';
             } else {
-                $error_msg = "Database Error: Registration failed. Please try again.";
+                mysqli_begin_transaction($conn);
+
+                try {
+                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                    $insertStmt = mysqli_prepare(
+                        $conn,
+                        'INSERT INTO users (fullname, email, phone, password, role) VALUES (?, ?, ?, ?, ?)'
+                    );
+
+                    if (!$insertStmt) {
+                        throw new Exception('Unable to prepare user registration.');
+                    }
+
+                    mysqli_stmt_bind_param($insertStmt, 'sssss', $fullname, $email, $phone, $hashedPassword, $role);
+                    if (!mysqli_stmt_execute($insertStmt)) {
+                        throw new Exception('Unable to create user account.');
+                    }
+
+                    $userId = mysqli_insert_id($conn);
+                    mysqli_stmt_close($insertStmt);
+
+                    if ($role === 'doctor') {
+                        $feeColumn = mysqli_query($conn, "SHOW COLUMNS FROM doctors LIKE 'fee'");
+                        $hasFeeColumn = $feeColumn && mysqli_num_rows($feeColumn) > 0;
+
+                        if ($hasFeeColumn) {
+                            $doctorStmt = mysqli_prepare(
+                                $conn,
+                                'INSERT INTO doctors (user_id, specialization, qualification, fee) VALUES (?, ?, ?, ?)'
+                            );
+                            if (!$doctorStmt) {
+                                throw new Exception('Unable to prepare doctor profile.');
+                            }
+                            mysqli_stmt_bind_param($doctorStmt, 'issd', $userId, $specialization, $qualification, $fee);
+                        } else {
+                            $doctorStmt = mysqli_prepare(
+                                $conn,
+                                'INSERT INTO doctors (user_id, specialization, qualification) VALUES (?, ?, ?)'
+                            );
+                            if (!$doctorStmt) {
+                                throw new Exception('Unable to prepare doctor profile.');
+                            }
+                            mysqli_stmt_bind_param($doctorStmt, 'iss', $userId, $specialization, $qualification);
+                        }
+
+                        if (!mysqli_stmt_execute($doctorStmt)) {
+                            throw new Exception('Unable to save doctor profile.');
+                        }
+                        mysqli_stmt_close($doctorStmt);
+                    }
+
+                    mysqli_commit($conn);
+                    echo "<script>
+                            alert('Registration successful! Please log in with your credentials.');
+                            window.location='login.php';
+                          </script>";
+                    exit();
+                } catch (Throwable $exception) {
+                    mysqli_rollback($conn);
+                    error_log('MediCare registration failed: ' . $exception->getMessage());
+                    $error_msg = 'Registration failed. Please check your details and try again.';
+                }
             }
         }
     }
