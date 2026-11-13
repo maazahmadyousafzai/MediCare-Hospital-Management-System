@@ -1,2 +1,0 @@
-This file is intentionally kept free of application logs and personal data.
-Email delivery errors are written to the server error log by db/email.php.
