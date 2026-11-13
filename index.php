@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediCare: A Web-Based 3-Tier Telemedicine & Hospital Management Platform</title>
+    <title>MediCare: A Web-Based 3-Tier Hospital Management Platform</title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -348,7 +348,7 @@
             <div class="row align-items-center">
                 <div class="col-lg-10 mx-auto">
                     <span class="badge bg-info bg-opacity-10 text-info px-3 py-2 rounded-pill fw-semibold mb-3 border border-info border-opacity-25">
-                        <i class="fas fa-shield-alt me-1"></i> 3-Tier Web Architecture & Telemedicine Platform
+                        <i class="fas fa-shield-alt me-1"></i> 3-Tier Web Architecture & Hospital Management Platform
                     </span>
                     <h1>Hospital Management & <span>Appointment Platform</span></h1>
                     <p>Manage appointments, doctor workflows, digital prescriptions, and patient records through a role-based web application.</p>
@@ -439,7 +439,7 @@
                 </div>
             </div>
             
-            <p class="copyright mb-0">© 2026 <span>MediCare</span> — A Web-Based 3-Tier Telemedicine & Hospital Management Platform</p>
+            <p class="copyright mb-0">© 2026 <span>MediCare</span> — A Web-Based 3-Tier Hospital Management Platform</p>
         </div>
     </footer>
 
