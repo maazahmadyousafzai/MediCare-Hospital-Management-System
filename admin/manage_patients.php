@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     header("Location: ../login.php");
@@ -441,12 +442,17 @@ $patients = mysqli_query($conn,
                             <div class="fw-semibold text-dark"><?php echo date('d M Y', strtotime($row['created_at'])); ?></div>
                         </td>
                         <td>
-                            <?php if($row['status'] == 'active'): ?>
-                                <span class="badge-pill badge-active"><i class="fas fa-check-circle"></i> Active</span>
-                            <?php else: ?>
-                                <span class="badge-pill badge-blocked"><i class="fas fa-ban"></i> Blocked</span>
-                            <?php endif; ?>
-                        </td>
+                            <form method="POST" action="patient_action.php" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                <?php if ($row['status'] === 'active'): ?>
+                                    <button name="action" value="block" class="btn-action btn-block" onclick="return confirm('Block this patient account?')"><i class="fas fa-ban"></i> Block</button>
+                                <?php else: ?>
+                                    <button name="action" value="unblock" class="btn-action btn-unblock"><i class="fas fa-unlock"></i> Unblock</button>
+                                <?php endif; ?>
+                                <button name="action" value="delete" class="btn-action btn-delete" onclick="return confirm('Permanently delete this patient account and all linked medical records?')"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </form>
+/td>
                         <td>
                             <?php if($row['status'] == 'active'): ?>
                                 <a href="patient_action.php?id=<?php echo $row['id']; ?>&action=block"
