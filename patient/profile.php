@@ -1,61 +1,63 @@
 <?php
 session_start();
-include '../db/connection.php';
-
-// Access Control: Ensure only authenticated Patients can access
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
-    header("Location: ../login.php");
-    exit();
+require_once '../db/connection.php';
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'patient') {
+    header('Location: ../login.php'); exit();
 }
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
+$patientId = (int) $_SESSION['user_id'];
 
-$patient_id = intval($_SESSION['user_id']);
-
-// Handle Profile & Password Update Form Submission
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $fullname = mysqli_real_escape_string($conn, trim($_POST['fullname']));
-    $phone    = mysqli_real_escape_string($conn, trim($_POST['phone']));
-    $new_password = $_POST['new_password'];
-
-    // Update Basic User Information
-    $update_query = "UPDATE users SET fullname = '$fullname', phone = '$phone' WHERE id = $patient_id";
-    if (mysqli_query($conn, $update_query)) {
-        // Update Session name dynamically
-        $_SESSION['user_name'] = $fullname;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'], $token)) { http_response_code(403); exit('Invalid request token.'); }
+    $fullname = trim($_POST['fullname'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $newPassword = $_POST['new_password'] ?? '';
+    if ($fullname === '' || strlen($fullname) > 100 || strlen($phone) > 20 ||
+        ($newPassword !== '' && strlen($newPassword) < 8)) {
+        http_response_code(400); exit('Please check your profile details. Passwords must be at least 8 characters.');
     }
-
-    // Optional Password Update
-    if (!empty($new_password)) {
-        if (strlen($new_password) < 6) {
-            echo "<script>alert('Password must be at least 6 characters long!'); window.history.back();</script>";
-            exit();
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    try {
+        mysqli_begin_transaction($conn);
+        $update = mysqli_prepare($conn, "UPDATE users SET fullname = ?, phone = ? WHERE id = ? AND role = 'patient'");
+        mysqli_stmt_bind_param($update, 'ssi', $fullname, $phone, $patientId);
+        mysqli_stmt_execute($update); mysqli_stmt_close($update);
+        if ($newPassword !== '') {
+            $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $passwordUpdate = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ? AND role = 'patient'");
+            mysqli_stmt_bind_param($passwordUpdate, 'si', $passwordHash, $patientId);
+            mysqli_stmt_execute($passwordUpdate); mysqli_stmt_close($passwordUpdate);
         }
-        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-        mysqli_query($conn, "UPDATE users SET password = '$hashed_password' WHERE id = $patient_id");
+        mysqli_commit($conn);
+        $_SESSION['user_name'] = $fullname;
+        if ($newPassword !== '') { session_regenerate_id(true); }
+        header('Location: profile.php?updated=1'); exit();
+    } catch (Throwable $e) {
+        mysqli_rollback($conn);
+        error_log('MediCare patient profile update failed: ' . $e->getMessage());
+        http_response_code(500); exit('Unable to update your profile right now.');
     }
-
-    echo "<script>
-            alert('Profile updated successfully!');
-            window.location='profile.php';
-          </script>";
-    exit();
 }
 
-// Fetch Patient Info Securely
-$user_res = mysqli_query($conn, "SELECT * FROM users WHERE id = $patient_id");
-$user     = mysqli_fetch_assoc($user_res);
+$userStmt = mysqli_prepare($conn, "SELECT id, fullname, email, phone, created_at FROM users WHERE id = ? AND role = 'patient' LIMIT 1");
+mysqli_stmt_bind_param($userStmt, 'i', $patientId);
+mysqli_stmt_execute($userStmt);
+$user = mysqli_fetch_assoc(mysqli_stmt_get_result($userStmt));
+mysqli_stmt_close($userStmt);
+if (!$user) { session_unset(); session_destroy(); header('Location: ../login.php'); exit(); }
 
-if (!$user) {
-    session_destroy();
-    header("Location: ../login.php");
-    exit();
-}
+$totalStmt = mysqli_prepare($conn, 'SELECT COUNT(*) AS cnt FROM appointments WHERE patient_id = ?');
+mysqli_stmt_bind_param($totalStmt, 'i', $patientId);
+mysqli_stmt_execute($totalStmt);
+$total = (int) mysqli_fetch_assoc(mysqli_stmt_get_result($totalStmt))['cnt'];
+mysqli_stmt_close($totalStmt);
 
-// Fetch Live Appointment Statistics
-$total_res     = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM appointments WHERE patient_id = $patient_id");
-$completed_res = mysqli_query($conn, "SELECT COUNT(*) as cnt FROM appointments WHERE patient_id = $patient_id AND status = 'completed'");
-
-$total     = mysqli_fetch_assoc($total_res)['cnt'];
-$completed = mysqli_fetch_assoc($completed_res)['cnt'];
+$completedStmt = mysqli_prepare($conn, "SELECT COUNT(*) AS cnt FROM appointments WHERE patient_id = ? AND status = 'completed'");
+mysqli_stmt_bind_param($completedStmt, 'i', $patientId);
+mysqli_stmt_execute($completedStmt);
+$completed = (int) mysqli_fetch_assoc(mysqli_stmt_get_result($completedStmt))['cnt'];
+mysqli_stmt_close($completedStmt);
 ?>
 
 <!DOCTYPE html>
@@ -481,6 +483,7 @@ $completed = mysqli_fetch_assoc($completed_res)['cnt'];
 
                 <!-- Update Form -->
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION["csrf_token"], ENT_QUOTES, "UTF-8"); ?>">
 
                     <div class="section-title">
                         <i class="fas fa-user-edit text-cyan"></i> Personal Details
