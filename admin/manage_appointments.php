@@ -41,25 +41,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payment_id'], $_POST[
     exit();
 }
 
-// Handle Appointment Status Update Action
-if (isset($_GET['action']) && isset($_GET['id'])) {
-    $apt_id = intval($_GET['id']);
-    $action = mysqli_real_escape_string($conn, trim($_GET['action']));
-
-    $allowed_statuses = ['confirmed', 'cancelled', 'completed'];
-
-    if (in_array($action, $allowed_statuses)) {
-        $update_stmt = mysqli_prepare($conn, "UPDATE appointments SET status = ? WHERE id = ?");
-        mysqli_stmt_bind_param($update_stmt, "si", $action, $apt_id);
-        
-        if (mysqli_stmt_execute($update_stmt)) {
-            echo "<script>
-                    alert('Appointment status updated to " . ucfirst($action) . " successfully!');
-                    window.location='manage_appointments.php';
-                  </script>";
-            exit();
-        }
+// Appointment status changes must use POST with a valid CSRF token.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_action'], $_POST['appointment_id'])) {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+        http_response_code(403);
+        exit('Invalid request token.');
     }
+
+    $appointmentId = filter_input(INPUT_POST, 'appointment_id', FILTER_VALIDATE_INT);
+    $action = $_POST['appointment_action'];
+    $allowedStatuses = ['confirmed', 'cancelled', 'completed'];
+
+    if ($appointmentId && in_array($action, $allowedStatuses, true)) {
+        $updateStmt = mysqli_prepare($conn, 'UPDATE appointments SET status = ? WHERE id = ?');
+        if (!$updateStmt) {
+            error_log('MediCare appointment update prepare failed: ' . mysqli_error($conn));
+            http_response_code(500);
+            exit('Unable to update appointment status.');
+        }
+        mysqli_stmt_bind_param($updateStmt, 'si', $action, $appointmentId);
+        mysqli_stmt_execute($updateStmt);
+        mysqli_stmt_close($updateStmt);
+    }
+
+    header('Location: manage_appointments.php');
+    exit();
 }
 
 // Fetch all appointments securely
@@ -569,19 +576,19 @@ $completed_cnt = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt 
                                 </td>
                                 <td class="text-end">
                                     <?php if ($apt['status'] === 'pending'): ?>
-                                        <a href="manage_appointments.php?action=confirmed&id=<?php echo $apt['id']; ?>" class="btn-action btn-confirm">
-                                            <i class="fas fa-check"></i> Confirm
-                                        </a>
-                                        <a href="manage_appointments.php?action=cancelled&id=<?php echo $apt['id']; ?>" class="btn-action btn-cancel" onclick="return confirm('Are you sure you want to cancel this appointment?')">
-                                            <i class="fas fa-times"></i> Cancel
-                                        </a>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <input type="hidden" name="appointment_id" value="<?php echo (int) $apt['id']; ?>">
+                                            <button type="submit" name="appointment_action" value="confirmed" class="btn-action btn-confirm"><i class="fas fa-check"></i> Confirm</button>
+                                            <button type="submit" name="appointment_action" value="cancelled" class="btn-action btn-cancel" onclick="return confirm('Are you sure you want to cancel this appointment?')"><i class="fas fa-times"></i> Cancel</button>
+                                        </form>
                                     <?php elseif ($apt['status'] === 'confirmed'): ?>
-                                        <a href="manage_appointments.php?action=completed&id=<?php echo $apt['id']; ?>" class="btn-action btn-complete">
-                                            <i class="fas fa-check-circle"></i> Complete
-                                        </a>
-                                        <a href="manage_appointments.php?action=cancelled&id=<?php echo $apt['id']; ?>" class="btn-action btn-cancel" onclick="return confirm('Are you sure you want to cancel this appointment?')">
-                                            <i class="fas fa-times"></i> Cancel
-                                        </a>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <input type="hidden" name="appointment_id" value="<?php echo (int) $apt['id']; ?>">
+                                            <button type="submit" name="appointment_action" value="completed" class="btn-action btn-complete"><i class="fas fa-check-circle"></i> Complete</button>
+                                            <button type="submit" name="appointment_action" value="cancelled" class="btn-action btn-cancel" onclick="return confirm('Are you sure you want to cancel this appointment?')"><i class="fas fa-times"></i> Cancel</button>
+                                        </form>
                                     <?php else: ?>
                                         <span class="text-muted fs-7 fw-semibold">No Actions</span>
                                     <?php endif; ?>
