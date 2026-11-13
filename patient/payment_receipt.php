@@ -13,30 +13,46 @@ if (!isset($_GET['txn']) || !isset($_GET['apt'])) {
     exit();
 }
 
-$txn_id         = mysqli_real_escape_string($conn, trim($_GET['txn']));
-$appointment_id = intval($_GET['apt']);
-$patient_id     = intval($_SESSION['user_id']);
+$txn_id = trim((string) $_GET['txn']);
+$appointment_id = filter_input(INPUT_GET, 'apt', FILTER_VALIDATE_INT);
+$patient_id = (int) $_SESSION['user_id'];
 
-// Fetch Payment and Appointment details securely
+if ($txn_id === '' || strlen($txn_id) > 100 || !$appointment_id) {
+    header('Location: my_appointments.php');
+    exit();
+}
+
 $query = "SELECT p.*, a.appointment_date, a.appointment_time, a.type,
-                 u.fullname as doctor_name,
-                 pat.fullname as patient_name,
+                 u.fullname AS doctor_name,
+                 pat.fullname AS patient_name,
                  d.specialization
           FROM payments p
           JOIN appointments a ON p.appointment_id = a.id
           JOIN users u ON a.doctor_id = u.id
           JOIN users pat ON p.patient_id = pat.id
           LEFT JOIN doctors d ON a.doctor_id = d.user_id
-          WHERE p.transaction_id = '$txn_id' AND p.appointment_id = $appointment_id AND p.patient_id = $patient_id";
+          WHERE p.transaction_id = ? AND p.appointment_id = ? AND p.patient_id = ?
+          LIMIT 1";
 
-$result  = mysqli_query($conn, $query);
-$payment = mysqli_fetch_assoc($result);
+$stmt = mysqli_prepare($conn, $query);
+if (!$stmt) {
+    error_log('MediCare receipt query prepare failed: ' . mysqli_error($conn));
+    http_response_code(500);
+    exit('Unable to load this receipt right now.');
+}
+mysqli_stmt_bind_param($stmt, 'sii', $txn_id, $appointment_id, $patient_id);
+if (!mysqli_stmt_execute($stmt)) {
+    error_log('MediCare receipt query failed: ' . mysqli_stmt_error($stmt));
+    mysqli_stmt_close($stmt);
+    http_response_code(500);
+    exit('Unable to load this receipt right now.');
+}
+$result = mysqli_stmt_get_result($stmt);
+$payment = $result ? mysqli_fetch_assoc($result) : null;
+mysqli_stmt_close($stmt);
 
 if (!$payment) {
-    echo "<script>
-            alert('Invalid receipt record or unauthorized request!');
-            window.location='my_appointments.php';
-          </script>";
+    header('Location: my_appointments.php');
     exit();
 }
 ?>
