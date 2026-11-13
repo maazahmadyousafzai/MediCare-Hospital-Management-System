@@ -61,7 +61,7 @@ if (mysqli_num_rows($paid_res) > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Checkout — MediCare Telemedicine</title>
+    <title>Manual Payment Reference — MediCare</title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -461,7 +461,7 @@ if (mysqli_num_rows($paid_res) > 0) {
     <div class="header-bar">
         <div class="header-title">
             <h4>Consultation Fee Payment</h4>
-            <p>Complete your payment securely to finalize your appointment</p>
+            <p>Submit your payment reference for manual administrator verification</p>
         </div>
         <div class="user-pill">
             <div class="avatar-circle"><i class="fas fa-user"></i></div>
@@ -558,9 +558,9 @@ if (mysqli_num_rows($paid_res) > 0) {
         <!-- Right Side Checkout Summary -->
         <div class="col-lg-4">
             <div class="bg-white rounded-4 p-4 border shadow-sm">
-                <h6 class="fw-bold mb-3 text-dark"><i class="fas fa-shield-alt text-success me-2"></i> End-to-End Encrypted</h6>
+                <h6 class="fw-bold mb-3 text-dark"><i class="fas fa-shield-alt text-success me-2"></i> Manual Payment Review</h6>
                 <p class="text-muted fs-7 mb-3">
-                    Your transactions are protected using industry-standard SSL encryption technology.
+                    This page records a payment reference only. It does not process or verify a payment. Use only payment instructions confirmed by the administrator.
                 </p>
                 <hr>
                 <h6 class="fw-bold mb-3 text-dark">Payment Breakdown</h6>
@@ -588,8 +588,8 @@ if (mysqli_num_rows($paid_res) > 0) {
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4 text-center p-4">
             <div class="spinner-border text-cyan my-3" style="width: 50px; height: 50px;" role="status"></div>
-            <h5 class="fw-bold text-dark">Processing Payment...</h5>
-            <p class="text-muted fs-7 mb-0">Please wait while we verify your transaction credentials safely.</p>
+            <h5 class="fw-bold text-dark">Submitting Reference...</h5>
+            <p class="text-muted fs-7 mb-0">Please wait while your reference is submitted for administrator review.</p>
         </div>
     </div>
 </div>
