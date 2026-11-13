@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 // Access Control: Ensure only logged-in Patients can access
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
@@ -531,11 +532,11 @@ $appointments = mysqli_query($conn, $query);
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-1">
                                 <?php if ($status === 'pending'): ?>
-                                    <a href="cancel_appointment.php?id=<?php echo $apt_id; ?>"
-                                       onclick="return confirm('Are you sure you want to cancel this appointment request?');"
-                                       class="action-btn btn-action-cancel" title="Cancel Appointment">
-                                        <i class="fas fa-times me-1"></i> Cancel
-                                    </a>
+                                    <form method="POST" action="cancel_appointment.php" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this appointment request?');">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <input type="hidden" name="id" value="<?php echo $apt_id; ?>">
+                                        <button type="submit" class="action-btn btn-action-cancel" title="Cancel Appointment"><i class="fas fa-times me-1"></i> Cancel</button>
+                                    </form>
 
                                 <?php elseif ($status === 'completed'): ?>
 
