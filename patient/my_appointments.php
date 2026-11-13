@@ -20,7 +20,7 @@ $query = "SELECT a.*,
           FROM appointments a
           JOIN users u ON a.doctor_id = u.id
           LEFT JOIN doctors d ON a.doctor_id = d.user_id
-          LEFT JOIN payments p ON a.id = p.appointment_id AND p.status = 'completed'
+          LEFT JOIN payments p ON p.id = (SELECT MAX(p2.id) FROM payments p2 WHERE p2.appointment_id = a.id)
           LEFT JOIN ratings r ON a.id = r.appointment_id AND r.patient_id = $patient_id
           LEFT JOIN prescriptions pr ON a.id = pr.appointment_id
           WHERE a.patient_id = $patient_id
@@ -506,9 +506,13 @@ $appointments = mysqli_query($conn, $query);
 
                         <!-- Payment Status -->
                         <td>
-                            <?php if (!empty($row['payment_id'])): ?>
+                            <?php if (!empty($row['payment_id']) && $row['payment_status'] === 'completed'): ?>
                                 <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-2 fw-bold fs-7">
-                                    <i class="fas fa-check-circle me-1"></i> Paid
+                                    <i class="fas fa-check-circle me-1"></i> Verified & Paid
+                                </span>
+                            <?php elseif (!empty($row['payment_id']) && $row['payment_status'] === 'pending'): ?>
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-2 fw-semibold fs-7">
+                                    <i class="far fa-hourglass me-1"></i> Awaiting Verification
                                 </span>
                             <?php elseif ($status === 'confirmed'): ?>
                                 <a href="payment.php?id=<?php echo $apt_id; ?>" class="action-btn btn-action-pay">
