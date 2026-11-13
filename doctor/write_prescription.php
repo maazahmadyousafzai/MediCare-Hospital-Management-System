@@ -1,81 +1,120 @@
 <?php
 session_start();
-include '../db/connection.php';
+require_once '../db/connection.php';
 if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
-// Access Control: Ensure only authenticated Doctors can access
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
-    header("Location: ../login.php");
-    exit();
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'doctor') {
+    header('Location: ../login.php'); exit();
 }
+$doctorId = (int) $_SESSION['user_id'];
+$appointmentId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$appointmentId) { http_response_code(400); exit('Invalid appointment request.'); }
 
-if (!isset($_GET['id'])) {
-    header("Location: my_appointments.php");
-    exit();
-}
+$appointmentStmt = mysqli_prepare($conn,
+    "SELECT a.*, u.fullname AS patient_name, u.email AS patient_email,
+            u.phone AS patient_phone, d.specialization
+     FROM appointments a
+     JOIN users u ON a.patient_id = u.id
+     LEFT JOIN doctors d ON a.doctor_id = d.user_id
+     WHERE a.id = ? AND a.doctor_id = ? AND a.status = 'completed'
+     LIMIT 1");
+mysqli_stmt_bind_param($appointmentStmt, 'ii', $appointmentId, $doctorId);
+mysqli_stmt_execute($appointmentStmt);
+$apt = mysqli_fetch_assoc(mysqli_stmt_get_result($appointmentStmt));
+mysqli_stmt_close($appointmentStmt);
+if (!$apt) { http_response_code(404); exit('Only your completed appointments can receive a prescription.'); }
 
-$doctor_id      = intval($_SESSION['user_id']);
-$appointment_id = intval($_GET['id']);
-
-// Fetch Appointment and Patient Details
-$apt_query = "SELECT a.*, u.fullname as patient_name,
-                     u.email as patient_email,
-                     u.phone as patient_phone,
-                     d.specialization
-              FROM appointments a
-              JOIN users u ON a.patient_id = u.id
-              LEFT JOIN doctors d ON a.doctor_id = d.user_id
-              WHERE a.id = $appointment_id
-              AND a.doctor_id = $doctor_id";
-
-$apt_res = mysqli_query($conn, $apt_query);
-$apt     = mysqli_fetch_assoc($apt_res);
-
-if (!$apt) {
-    echo "<script>alert('Invalid or unauthorized appointment request!'); window.location='my_appointments.php';</script>";
-    exit();
-}
-
-// Check if Prescription already exists for this appointment
-$already_res = mysqli_query($conn, "SELECT id FROM prescriptions WHERE appointment_id = $appointment_id");
-$already     = mysqli_fetch_assoc($already_res);
-
+$existingStmt = mysqli_prepare($conn, 'SELECT id FROM prescriptions WHERE appointment_id = ? LIMIT 1');
+mysqli_stmt_bind_param($existingStmt, 'i', $appointmentId);
+mysqli_stmt_execute($existingStmt);
+$already = mysqli_fetch_assoc(mysqli_stmt_get_result($existingStmt));
+mysqli_stmt_close($existingStmt);
 if ($already) {
-    header("Location: view_prescription.php?id=" . intval($already['id']));
-    exit();
+    header('Location: view_prescription.php?id=' . (int) $already['id']); exit();
 }
 
-// Handle Form Submission
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $csrfToken = $_POST['csrf_token'] ?? '';
-    if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
-        http_response_code(403);
-        exit('Invalid request token.');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'], $token)) { http_response_code(403); exit('Invalid request token.'); }
+
+    $diagnosis = trim($_POST['diagnosis'] ?? '');
+    $instructions = trim($_POST['instructions'] ?? '');
+    $followUp = trim($_POST['follow_up_date'] ?? '');
+    $names = $_POST['med_name'] ?? [];
+    $doses = $_POST['med_dose'] ?? [];
+    $timings = $_POST['med_timing'] ?? [];
+    $days = $_POST['med_days'] ?? [];
+
+    if ($diagnosis === '' || strlen($diagnosis) > 2000 || strlen($instructions) > 3000 ||
+        !is_array($names) || !is_array($doses) || !is_array($timings) || !is_array($days) ||
+        count($names) < 1 || count($names) > 20 ||
+        count($names) !== count($doses) || count($names) !== count($timings) || count($names) !== count($days)) {
+        http_response_code(400); exit('Please complete the diagnosis and provide between 1 and 20 valid medicine entries.');
     }
-    $diagnosis    = mysqli_real_escape_string($conn, trim($_POST['diagnosis']));
-    $medicines    = mysqli_real_escape_string($conn, trim($_POST['medicines'])); // JSON encoded string
-    $instructions = mysqli_real_escape_string($conn, trim($_POST['instructions']));
-    $follow_up    = !empty($_POST['follow_up_date']) ? "'" . mysqli_real_escape_string($conn, $_POST['follow_up_date']) . "'" : "NULL";
-    $patient_id   = intval($apt['patient_id']);
 
-    $insert_sql = "INSERT INTO prescriptions
-                   (appointment_id, doctor_id, patient_id, diagnosis, medicines, instructions, follow_up_date)
-                   VALUES
-                   ($appointment_id, $doctor_id, $patient_id, '$diagnosis', '$medicines', '$instructions', $follow_up)";
+    $medicines = [];
+    foreach ($names as $i => $name) {
+        $medicineName = trim((string) $name);
+        $dose = trim((string) $doses[$i]);
+        $timing = trim((string) $timings[$i]);
+        $duration = filter_var($days[$i], FILTER_VALIDATE_INT);
+        if ($medicineName === '' || strlen($medicineName) > 150 ||
+            $dose === '' || strlen($dose) > 100 ||
+            $timing === '' || strlen($timing) > 150 ||
+            $duration === false || $duration < 1 || $duration > 3650) {
+            http_response_code(400); exit('Please check each medicine name, dose, timing, and duration.');
+        }
+        $medicines[] = ['name' => $medicineName, 'dose' => $dose, 'timing' => $timing, 'days' => $duration];
+    }
 
-    if (mysqli_query($conn, $insert_sql)) {
-        $pres_id = mysqli_insert_id($conn);
+    $followUpValue = null;
+    if ($followUp !== '') {
+        $followUpDate = DateTime::createFromFormat('!Y-m-d', $followUp);
+        if (!$followUpDate || $followUpDate->format('Y-m-d') !== $followUp || $followUp < date('Y-m-d')) {
+            http_response_code(400); exit('Please provide a valid follow-up date.');
+        }
+        $followUpValue = $followUp;
+    }
+    $medicinesJson = json_encode($medicines, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    $patientId = (int) $apt['patient_id'];
 
-        // Update appointment status to completed automatically
-        mysqli_query($conn, "UPDATE appointments SET status='completed' WHERE id = $appointment_id");
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    try {
+        mysqli_begin_transaction($conn);
+        $lockStmt = mysqli_prepare($conn,
+            "SELECT id FROM appointments WHERE id = ? AND doctor_id = ? AND status = 'completed' FOR UPDATE");
+        mysqli_stmt_bind_param($lockStmt, 'ii', $appointmentId, $doctorId);
+        mysqli_stmt_execute($lockStmt);
+        $lockedAppointment = mysqli_fetch_assoc(mysqli_stmt_get_result($lockStmt));
+        mysqli_stmt_close($lockStmt);
+        if (!$lockedAppointment) { throw new DomainException('This completed appointment is no longer available.'); }
 
-        echo "<script>
-                alert('Prescription created and saved successfully!');
-                window.location='view_prescription.php?id=$pres_id';
-              </script>";
-        exit();
-    } else {
-        echo "<script>alert('Database Error: Failed to save prescription.');</script>";
+        $checkStmt = mysqli_prepare($conn, 'SELECT id FROM prescriptions WHERE appointment_id = ? LIMIT 1');
+        mysqli_stmt_bind_param($checkStmt, 'i', $appointmentId);
+        mysqli_stmt_execute($checkStmt);
+        $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($checkStmt));
+        mysqli_stmt_close($checkStmt);
+        if ($existing) { throw new DomainException('A prescription already exists for this appointment.'); }
+
+        $insertStmt = mysqli_prepare($conn,
+            'INSERT INTO prescriptions
+             (appointment_id, doctor_id, patient_id, diagnosis, medicines, instructions, follow_up_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?)');
+        mysqli_stmt_bind_param($insertStmt, 'iiissss',
+            $appointmentId, $doctorId, $patientId, $diagnosis, $medicinesJson, $instructions, $followUpValue);
+        mysqli_stmt_execute($insertStmt);
+        $prescriptionId = mysqli_insert_id($conn);
+        mysqli_stmt_close($insertStmt);
+        mysqli_commit($conn);
+        header('Location: view_prescription.php?id=' . (int) $prescriptionId); exit();
+    } catch (DomainException $e) {
+        mysqli_rollback($conn);
+        $_SESSION['prescription_error'] = $e->getMessage();
+        header('Location: my_appointments.php'); exit();
+    } catch (Throwable $e) {
+        mysqli_rollback($conn);
+        error_log('MediCare prescription creation failed: ' . $e->getMessage());
+        http_response_code(500); exit('Unable to save the prescription right now.');
     }
 }
 ?>
