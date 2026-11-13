@@ -1,5 +1,6 @@
 <?php
 session_start();
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     header("Location: ../login.php");
@@ -603,15 +604,12 @@ $pending = mysqli_query($conn,
                                 <td><span class="badge bg-info bg-opacity-10 text-info fw-semibold px-2 py-1"><?php echo htmlspecialchars($row['specialization']); ?></span></td>
                                 <td><strong><?php echo htmlspecialchars($row['experience']); ?></strong> yrs</td>
                                 <td>
-                                    <a href="approve_doctor.php?id=<?php echo $row['id']; ?>&action=approve"
-                                       class="btn-action bg-success text-white">
-                                        <i class="fas fa-check"></i> Approve
-                                    </a>
-                                    <a href="approve_doctor.php?id=<?php echo $row['id']; ?>&action=reject"
-                                       onclick="return confirm('Reject and remove doctor registration?')"
-                                       class="btn-action bg-danger text-white">
-                                        <i class="fas fa-times"></i> Reject
-                                    </a>
+                                    <form method="POST" action="doctor_action.php" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                        <button name="action" value="approve" class="btn-action bg-success text-white"><i class="fas fa-check"></i> Approve</button>
+                                        <button name="action" value="reject" class="btn-action bg-danger text-white" onclick="return confirm('Reject and remove doctor registration?')"><i class="fas fa-times"></i> Reject</button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
