@@ -135,17 +135,6 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `fullname`, `email`, `phone`, `password`, `role`, `status`, `created_at`, `specialization`) VALUES
-(1, 'Admin', 'admin@medicare.com', '0300-0000000', '0192023a7bbd73250516f069df18b500', 'admin', 'active', '2026-10-22 06:12:41', NULL),
-(2, 'Maizzy Yousafzai', 'maazyousafzai576@gmail.com', '03149661858', '876258db5df001e3f943dc9c98a0e635', 'patient', 'active', '2026-10-22 06:15:42', NULL),
-(20, 'Maaz Ahmad', 'maazahmadyousafzai557@gmail.com', '03361576134', '876258db5df001e3f943dc9c98a0e635', 'doctor', 'active', '2026-11-02 09:51:43', NULL),
-(21, 'Arsalan Khan', 'arsalankhan@gmail.com', '03338765212', '$2y$10$IDeBO1uKEwj57TnyHTxClu3ym4z3xiR7xX4vLCohkZ0IgHqlHsgs6', 'doctor', 'active', '2026-11-02 13:43:27', NULL),
-(22, 'Mansoor Khan', 'mansoorkhan@gmail.com', '03169575712', '$2y$10$pxnj3V9y.GDV09XsyEUUkeSqBSegi0zbbsNbOYREWgwk3aFRQ7LIi', 'doctor', 'active', '2026-11-02 13:44:33', NULL);
-
---
 -- Indexes for dumped tables
 --
 
