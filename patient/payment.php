@@ -23,7 +23,7 @@ $apt_query = "SELECT a.*, u.fullname as doctor_name, d.specialization
               FROM appointments a
               JOIN users u ON a.doctor_id = u.id
               LEFT JOIN doctors d ON a.doctor_id = d.user_id
-              WHERE a.id = $appointment_id AND a.patient_id = $patient_id";
+              WHERE a.id = $appointment_id AND a.patient_id = $patient_id AND a.status = 'confirmed'";
 
 $apt_res = mysqli_query($conn, $apt_query);
 $apt     = mysqli_fetch_assoc($apt_res);
@@ -31,6 +31,16 @@ $apt     = mysqli_fetch_assoc($apt_res);
 if (!$apt) {
     echo "<script>alert('Invalid appointment record or unauthorized request!');
           window.location='my_appointments.php';</script>";
+    exit();
+}
+
+// Do not allow another submission while a reference is awaiting verification.
+$pending_res = mysqli_query($conn,
+    "SELECT id FROM payments
+     WHERE appointment_id = $appointment_id AND status = 'pending'
+     LIMIT 1");
+if ($pending_res && mysqli_num_rows($pending_res) > 0) {
+    echo "<script>alert('A payment reference is already awaiting admin verification.'); window.location='my_appointments.php';</script>";
     exit();
 }
 
