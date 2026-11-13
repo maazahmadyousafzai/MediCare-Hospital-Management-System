@@ -1,13 +1,13 @@
-# MediCare – Hospital Management & Telemedicine System
+# MediCare – Hospital Management System
 
-MediCare is a web-based hospital management and telemedicine project developed as a final-year Computer Science project at Government Degree College Hayatabad, affiliated with the University of Peshawar, Pakistan.
+MediCare is a web-based hospital management project developed as a final-year Computer Science project at Government Degree College Hayatabad, affiliated with the University of Peshawar, Pakistan.
 
 The application provides separate workflows for patients, doctors, and administrators, including appointment booking and management, prescription records, doctor feedback, manual payment-reference review, email notifications, and a video-call interface (currently disabled).
 
 ## Main Features
 
 - **Patient module:** Registration, login, doctor browsing, appointment booking, appointment history, profile management, manual payment-reference workflow, prescription viewing, and doctor ratings.
-- **Doctor module:** Doctor registration and approval workflow, profile and appointment management, patient-related actions, video consultations, and prescription creation.
+- **Doctor module:** Doctor registration and approval workflow, profile and appointment management, and prescription creation. The video-call interface is currently disabled.
 - **Admin module:** Dashboard and management workflows for doctors, patients, and appointments.
 - **Video consultations:** The interface is present, but live calls and video appointment booking are disabled until secure server-side token generation is implemented and configured.
 - **Digital prescriptions:** Doctors can create prescriptions with diagnosis, medicines, instructions, and follow-up dates.
@@ -23,7 +23,7 @@ The application provides separate workflows for patients, doctors, and administr
 | Backend | PHP |
 | Database | MySQL / MariaDB |
 | Local development | XAMPP (Apache and MySQL) |
-| Video consultation | ZEGOCLOUD UIKit Prebuilt |
+| Video-call interface | Present but disabled pending secure server-side token support |
 | Email | PHPMailer |
 | Dependency management | Composer |
 
