@@ -14,8 +14,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(403);
         exit('Invalid request token. Please reload the registration page.');
     }
-    unset($_SESSION['register_csrf_token']);
-
     $fullname = trim($_POST['fullname'] ?? '');
     $email = strtolower(trim($_POST['email'] ?? ''));
     $phone = trim($_POST['phone'] ?? '');
