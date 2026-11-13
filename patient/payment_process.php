@@ -1,228 +1,119 @@
 <?php
 session_start();
-include '../db/connection.php';
-include '../db/email.php';
+require_once '../db/connection.php';
+require_once '../db/email.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
-    header("Location: ../login.php");
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'patient') {
+    header('Location: ../login.php');
     exit();
 }
 
-$appointment_id = $_GET['id'];
-$payment_method = $_GET['method'];
-$patient_id     = $_SESSION['user_id'];
-$amount         = 500;
-
-// Unique Transaction ID
-$transaction_id = 'MC-' . date('Ymd') . '-' . strtoupper(substr(md5(uniqid()), 0, 8));
-
-// Payment save karo
-$sql = "INSERT INTO payments
-        (appointment_id, patient_id, amount,
-         payment_method, transaction_id, status)
-        VALUES
-        ('$appointment_id','$patient_id','$amount',
-         '$payment_method','$transaction_id','completed')";
-
-if (mysqli_query($conn, $sql)) {
-
-    // Appointment + patient + doctor details fetch
-    $apt = mysqli_fetch_assoc(mysqli_query($conn,
-        "SELECT a.*,
-                doc.fullname as doctor_name,
-                pat.fullname as patient_name,
-                pat.email    as patient_email,
-                d.specialization
-         FROM appointments a
-         JOIN users doc ON a.doctor_id  = doc.id
-         JOIN users pat ON a.patient_id = pat.id
-         JOIN doctors d  ON a.doctor_id = d.user_id
-         WHERE a.id = '$appointment_id'"));
-
-    // Admin notification email
-    $admin_email = ADMIN_NOTIFY_EMAIL;
-    $admin_name  = ADMIN_NOTIFY_NAME;
-
-    $apt_date  = date('d M Y', strtotime($apt['appointment_date']));
-    $apt_time  = date('h:i A', strtotime($apt['appointment_time']));
-    $paid_at   = date('d M Y - h:i A');
-
-    // Payment method name & updated account info
-    if ($payment_method == 'jazzcash') {
-        $method_name    = 'JazzCash';
-        $method_account = '0336-1576134 (MAAZ AHMAD)';
-        $method_color   = '#EF3737';
-    } elseif ($payment_method == 'easypaisa') {
-        $method_name    = 'Easypaisa';
-        $method_account = '0336-1576134 (MAAZ AHMAD)';
-        $method_color   = '#4CAF50';
-    } elseif ($payment_method == 'bank') {
-        $method_name    = 'Bank Transfer';
-        $method_account = 'Allied Bank Limited - ABL (Maaz Ahmad)';
-        $method_color   = '#1565C0';
-    } else {
-        $method_name    = 'Debit/Credit Card';
-        $method_account = 'Card Payment';
-        $method_color   = '#6A1B9A';
-    }
-
-    // ── Patient ko Receipt Email ──
-    $subject_p = "Payment Receipt - MediCare 3-Tier Telemedicine Platform";
-    $message_p = "
-    <h2 style='color:#28a745;text-align:center;'>Payment Successful!</h2>
-
-    <div style='background:#f8f9fa;border-radius:10px;padding:20px;margin:15px 0;'>
-        <h3 style='color:#0d6efd;text-align:center;margin-bottom:15px;'>
-            Payment Receipt
-        </h3>
-        <table style='width:100%;border-collapse:collapse;'>
-            <tr style='background:#e8f0fe;'>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Transaction ID</td>
-                <td style='padding:10px;font-weight:700;border-bottom:1px solid #ddd;color:#0d6efd;'>
-                    $transaction_id
-                </td>
-            </tr>
-            <tr>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Patient Name</td>
-                <td style='padding:10px;font-weight:600;border-bottom:1px solid #ddd;'>
-                    " . $apt['patient_name'] . "
-                </td>
-            </tr>
-            <tr style='background:#f8f9fa;'>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Doctor</td>
-                <td style='padding:10px;font-weight:600;border-bottom:1px solid #ddd;'>
-                    Dr. " . $apt['doctor_name'] . "
-                </td>
-            </tr>
-            <tr>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Specialization</td>
-                <td style='padding:10px;border-bottom:1px solid #ddd;'>
-                    " . $apt['specialization'] . "
-                </td>
-            </tr>
-            <tr style='background:#f8f9fa;'>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Appointment Date</td>
-                <td style='padding:10px;border-bottom:1px solid #ddd;'>$apt_date</td>
-            </tr>
-            <tr>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Appointment Time</td>
-                <td style='padding:10px;border-bottom:1px solid #ddd;'>$apt_time</td>
-            </tr>
-            <tr style='background:#f8f9fa;'>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Payment Method</td>
-                <td style='padding:10px;font-weight:600;border-bottom:1px solid #ddd;'>
-                    $method_name
-                </td>
-            </tr>
-            <tr>
-                <td style='padding:10px;color:#666;border-bottom:1px solid #ddd;'>Amount Paid</td>
-                <td style='padding:10px;font-weight:700;color:#28a745;
-                           font-size:18px;border-bottom:1px solid #ddd;'>
-                    Rs. 500
-                </td>
-            </tr>
-            <tr style='background:#d1e7dd;'>
-                <td style='padding:10px;color:#666;'>Payment Status</td>
-                <td style='padding:10px;font-weight:700;color:#28a745;'>
-                    PAID
-                </td>
-            </tr>
-        </table>
-        <p style='text-align:center;color:#888;font-size:12px;margin-top:15px;'>
-            Paid on: $paid_at
-        </p>
-    </div>
-
-    <a href='http://localhost:8080/hospital_project/patient/my_appointments.php'
-       style='display:block;background:#0d6efd;color:white;padding:14px;
-              border-radius:8px;text-decoration:none;font-weight:bold;
-              text-align:center;margin-top:10px;'>
-        View My Appointments
-    </a>";
-
-    sendEmail($apt['patient_email'], $apt['patient_name'], $subject_p, $message_p);
-
-    // ── Admin ko Notification Email ──
-    $subject_a = "New Payment Received - MediCare 3-Tier Telemedicine Platform";
-    $message_a = "
-    <h2 style='color:#0d6efd;'>New Payment Received!</h2>
-    <p style='color:#666;'>
-        A patient has made a payment on MediCare 3-Tier Telemedicine Platform.
-        Please verify in your account.
-    </p>
-
-    <table style='width:100%;border-collapse:collapse;background:#f8f9fa;border-radius:8px;'>
-        <tr style='background:#e8f0fe;'>
-            <td style='padding:12px;color:#666;font-weight:600;width:40%;'>Transaction ID</td>
-            <td style='padding:12px;font-weight:700;color:#0d6efd;'>$transaction_id</td>
-        </tr>
-        <tr>
-            <td style='padding:12px;color:#666;font-weight:600;'>Patient Name</td>
-            <td style='padding:12px;font-weight:600;'>" . $apt['patient_name'] . "</td>
-        </tr>
-        <tr style='background:#f0f0f0;'>
-            <td style='padding:12px;color:#666;font-weight:600;'>Patient ID</td>
-            <td style='padding:12px;'>#$patient_id</td>
-        </tr>
-        <tr>
-            <td style='padding:12px;color:#666;font-weight:600;'>Doctor</td>
-            <td style='padding:12px;'>Dr. " . $apt['doctor_name'] . "</td>
-        </tr>
-        <tr style='background:#f0f0f0;'>
-            <td style='padding:12px;color:#666;font-weight:600;'>Appointment Date</td>
-            <td style='padding:12px;'>$apt_date at $apt_time</td>
-        </tr>
-        <tr>
-            <td style='padding:12px;color:#666;font-weight:600;'>Payment Method</td>
-            <td style='padding:12px;font-weight:700;color:$method_color;'>$method_name</td>
-        </tr>
-        <tr style='background:#f0f0f0;'>
-            <td style='padding:12px;color:#666;font-weight:600;'>Account Used</td>
-            <td style='padding:12px;font-weight:700;'>$method_account</td>
-        </tr>
-        <tr>
-            <td style='padding:12px;color:#666;font-weight:600;'>Amount</td>
-            <td style='padding:12px;font-weight:700;color:#28a745;font-size:20px;'>Rs. 500</td>
-        </tr>
-        <tr style='background:#d1e7dd;'>
-            <td style='padding:12px;color:#666;font-weight:600;'>Status</td>
-            <td style='padding:12px;font-weight:700;color:#28a745;'>PAID</td>
-        </tr>
-        <tr style='background:#f0f0f0;'>
-            <td style='padding:12px;color:#666;font-weight:600;'>Payment Date</td>
-            <td style='padding:12px;'>$paid_at</td>
-        </tr>
-    </table>
-
-    <br>
-    <div style='background:#fff3cd;border-radius:10px;
-                padding:15px 20px;border-left:5px solid #ffc107;'>
-        <p style='margin:0;color:#856404;font-weight:600;'>Action Required!</p>
-        <p style='margin:8px 0 0;color:#856404;'>
-            Please verify this payment in your
-            $method_name account and confirm the transaction manually.
-        </p>
-    </div>
-
-    <br>
-    <div style='background:#f8f9fa;border-radius:10px;
-                padding:15px;border:1px solid #e0e0e0;'>
-        <p style='margin:0;font-weight:700;color:#333;'>Your Payment Accounts:</p>
-        <p style='margin:8px 0 0;'>JazzCash: 0336-1576134 (MAAZ AHMAD)</p>
-        <p style='margin:5px 0 0;'>Easypaisa: 0336-1576134 (MAAZ AHMAD)</p>
-        <p style='margin:5px 0 0;'>Allied Bank Limited (ABL): Maaz Ahmad (Branch: Hayatabad, Peshawar)</p>
-    </div>";
-
-    sendEmail($admin_email, $admin_name, $subject_a, $message_a);
-
-    // Receipt page pe bhejo
-    header("Location: payment_receipt.php?txn=$transaction_id&apt=$appointment_id");
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: my_appointments.php');
     exit();
-
-} else {
-    echo "<script>
-            alert('Payment failed! Please try again.');
-            window.history.back();
-          </script>";
 }
+
+$csrfToken = $_POST['csrf_token'] ?? '';
+if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+    http_response_code(403);
+    exit('Invalid or expired request. Please return to the payment page and try again.');
+}
+
+$appointmentId = filter_input(INPUT_POST, 'appointment_id', FILTER_VALIDATE_INT);
+$patientId = (int) $_SESSION['user_id'];
+$method = trim($_POST['payment_method'] ?? '');
+$reference = trim($_POST['transaction_reference'] ?? '');
+$allowedMethods = ['jazzcash', 'easypaisa', 'bank'];
+
+if (!$appointmentId || !in_array($method, $allowedMethods, true) ||
+    strlen($reference) < 5 || strlen($reference) > 100 ||
+    !preg_match('/^[A-Za-z0-9\-\/_ ]+$/', $reference)) {
+    header('Location: my_appointments.php');
+    exit();
+}
+
+// Only the owner of a confirmed appointment may submit a payment reference.
+$appointmentStmt = mysqli_prepare(
+    $conn,
+    "SELECT id, appointment_date, appointment_time
+     FROM appointments
+     WHERE id = ? AND patient_id = ? AND status = 'confirmed'
+     LIMIT 1"
+);
+mysqli_stmt_bind_param($appointmentStmt, 'ii', $appointmentId, $patientId);
+mysqli_stmt_execute($appointmentStmt);
+$appointmentResult = mysqli_stmt_get_result($appointmentStmt);
+$appointment = $appointmentResult ? mysqli_fetch_assoc($appointmentResult) : null;
+mysqli_stmt_close($appointmentStmt);
+
+if (!$appointment) {
+    header('Location: my_appointments.php');
+    exit();
+}
+
+// Do not allow multiple active or completed payment submissions for one appointment.
+$existingStmt = mysqli_prepare(
+    $conn,
+    "SELECT id, status FROM payments
+     WHERE appointment_id = ? AND status IN ('pending', 'completed')
+     LIMIT 1"
+);
+mysqli_stmt_bind_param($existingStmt, 'i', $appointmentId);
+mysqli_stmt_execute($existingStmt);
+$existingResult = mysqli_stmt_get_result($existingStmt);
+$existingPayment = $existingResult ? mysqli_fetch_assoc($existingResult) : null;
+mysqli_stmt_close($existingStmt);
+
+if ($existingPayment) {
+    header('Location: my_appointments.php');
+    exit();
+}
+
+// Store the provider's reference, not any PIN, password, CVV or card number.
+$amount = 500.00;
+$insertStmt = mysqli_prepare(
+    $conn,
+    "INSERT INTO payments
+        (appointment_id, patient_id, amount, payment_method, transaction_id, status)
+     VALUES (?, ?, ?, ?, ?, 'pending')"
+);
+
+if (!$insertStmt) {
+    error_log('MediCare payment submission prepare failed: ' . mysqli_error($conn));
+    http_response_code(500);
+    exit('Unable to submit payment details right now. Please try again later.');
+}
+
+mysqli_stmt_bind_param($insertStmt, 'iidss', $appointmentId, $patientId, $amount, $method, $reference);
+if (!mysqli_stmt_execute($insertStmt)) {
+    error_log('MediCare payment submission failed: ' . mysqli_stmt_error($insertStmt));
+    mysqli_stmt_close($insertStmt);
+    http_response_code(500);
+    exit('Unable to submit payment details right now. Please try again later.');
+}
+mysqli_stmt_close($insertStmt);
+
+// Notify administrator that a reference is awaiting manual verification.
+$adminEmail = ADMIN_NOTIFY_EMAIL;
+$adminName = ADMIN_NOTIFY_NAME;
+$methodName = ucfirst($method === 'bank' ? 'Bank Transfer' : $method);
+$subject = 'Payment Reference Awaiting Verification - MediCare';
+$message = '
+<h2>Payment submitted for verification</h2>
+<p>A patient has submitted a payment reference. No payment has been marked as completed.</p>
+<ul>
+<li>Appointment ID: ' . (int) $appointmentId . '</li>
+<li>Payment method: ' . htmlspecialchars($methodName, ENT_QUOTES, 'UTF-8') . '</li>
+<li>Reference: ' . htmlspecialchars($reference, ENT_QUOTES, 'UTF-8') . '</li>
+<li>Amount claimed: Rs. 500</li>
+<li>Status: Pending verification</li>
+</ul>
+<p>Please verify the transaction in the provider account before approving it in the MediCare admin panel.</p>';
+
+if (filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+    sendEmail($adminEmail, $adminName, $subject, $message);
+}
+
+header('Location: payment_receipt.php?txn=' . rawurlencode($reference) . '&apt=' . $appointmentId);
+exit();
 ?>
