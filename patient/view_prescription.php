@@ -49,7 +49,7 @@ $medicines = json_decode($pres['medicines'], true);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Official Prescription #<?php echo $pres_id; ?> — MediCare Telemedicine</title>
+    <title>Prescription Record #<?php echo $pres_id; ?> — MediCare Telemedicine</title>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -322,7 +322,7 @@ $medicines = json_decode($pres['medicines'], true);
 
 <div class="action-bar">
     <button class="btn-print" onclick="window.print()">
-        <i class="fas fa-print"></i> Print Official Prescription
+        <i class="fas fa-print"></i> Print Prescription Record
     </button>
     <button class="btn-back" onclick="window.history.back()">
         <i class="fas fa-arrow-left"></i> Back to Appointments
@@ -473,7 +473,7 @@ $medicines = json_decode($pres['medicines'], true);
     <!-- Footer -->
     <div class="pres-footer">
         <p class="mb-0">
-            Official Electronically Generated Medical Prescription &bull; MediCare Hospital System &bull; Government Degree College Hayatabad, Peshawar
+            System-Generated Medical Prescription Record &bull; MediCare Hospital System &bull; Government Degree College Hayatabad, Peshawar
         </p>
     </div>
 
