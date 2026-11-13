@@ -8,6 +8,39 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     exit();
 }
 
+// CSRF token for administrative payment decisions.
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+// Handle manual payment verification. Only an admin can change payment status.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['payment_id'], $_POST['payment_decision'])) {
+    $token = $_POST['csrf_token'] ?? '';
+    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+        http_response_code(403);
+        exit('Invalid request token.');
+    }
+
+    $paymentId = filter_input(INPUT_POST, 'payment_id', FILTER_VALIDATE_INT);
+    $decision = $_POST['payment_decision'];
+    if (!$paymentId || !in_array($decision, ['completed', 'failed'], true)) {
+        header('Location: manage_appointments.php');
+        exit();
+    }
+
+    $paymentStmt = mysqli_prepare($conn, "UPDATE payments SET status = ? WHERE id = ? AND status = 'pending'");
+    mysqli_stmt_bind_param($paymentStmt, 'si', $decision, $paymentId);
+    mysqli_stmt_execute($paymentStmt);
+    $updated = mysqli_stmt_affected_rows($paymentStmt);
+    mysqli_stmt_close($paymentStmt);
+
+    $_SESSION['payment_notice'] = $updated === 1
+        ? ($decision === 'completed' ? 'Payment verified and marked as completed.' : 'Payment marked as failed.')
+        : 'No pending payment was found for that action.';
+    header('Location: manage_appointments.php');
+    exit();
+}
+
 // Handle Appointment Status Update Action
 if (isset($_GET['action']) && isset($_GET['id'])) {
     $apt_id = intval($_GET['id']);
@@ -426,6 +459,62 @@ $completed_cnt = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as cnt 
                     <p>Completed Visits</p>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <?php if (!empty($_SESSION['payment_notice'])): ?>
+        <div class="alert alert-info"><?php echo htmlspecialchars($_SESSION['payment_notice']); unset($_SESSION['payment_notice']); ?></div>
+    <?php endif; ?>
+
+    <!-- Pending Manual Payments -->
+    <?php
+    $pendingPayments = mysqli_query($conn,
+        "SELECT p.id, p.amount, p.payment_method, p.transaction_id, p.created_at,
+                a.id AS appointment_id, u.fullname AS patient_name, u.email AS patient_email
+         FROM payments p
+         JOIN appointments a ON a.id = p.appointment_id
+         JOIN users u ON u.id = p.patient_id
+         WHERE p.status = 'pending'
+         ORDER BY p.created_at ASC");
+    ?>
+    <div class="table-card mb-4">
+        <h5><i class="fas fa-money-check-alt text-primary"></i> Manual Payments Awaiting Verification</h5>
+        <p class="text-muted">Check the transaction in the relevant JazzCash, Easypaisa or bank account before approving it.</p>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr>
+                    <th>Appointment</th><th>Patient</th><th>Method</th><th>Reference ID</th><th>Amount</th><th>Submitted</th><th>Decision</th>
+                </tr></thead>
+                <tbody>
+                <?php if ($pendingPayments && mysqli_num_rows($pendingPayments) > 0): ?>
+                    <?php while ($payment = mysqli_fetch_assoc($pendingPayments)): ?>
+                    <tr>
+                        <td>#APT-<?php echo (int) $payment['appointment_id']; ?></td>
+                        <td>
+                            <strong><?php echo htmlspecialchars($payment['patient_name']); ?></strong><br>
+                            <small class="text-muted"><?php echo htmlspecialchars($payment['patient_email']); ?></small>
+                        </td>
+                        <td><?php echo htmlspecialchars(ucfirst($payment['payment_method'])); ?></td>
+                        <td><code><?php echo htmlspecialchars($payment['transaction_id']); ?></code></td>
+                        <td>Rs. <?php echo number_format((float) $payment['amount'], 2); ?></td>
+                        <td><?php echo htmlspecialchars(date('d M Y h:i A', strtotime($payment['created_at']))); ?></td>
+                        <td>
+                            <form method="POST" class="d-flex gap-2">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                <input type="hidden" name="payment_id" value="<?php echo (int) $payment['id']; ?>">
+                                <button class="btn btn-sm btn-success" name="payment_decision" value="completed"
+                                    onclick="return confirm('Have you independently verified this transaction in the provider account?')">Verify</button>
+                                <button class="btn btn-sm btn-outline-danger" name="payment_decision" value="failed"
+                                    onclick="return confirm('Mark this payment reference as failed?')">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="7" class="text-center text-muted py-4">No payments are waiting for verification.</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 
