@@ -350,8 +350,8 @@
                     <span class="badge bg-info bg-opacity-10 text-info px-3 py-2 rounded-pill fw-semibold mb-3 border border-info border-opacity-25">
                         <i class="fas fa-shield-alt me-1"></i> 3-Tier Web Architecture & Telemedicine Platform
                     </span>
-                    <h1>Next-Gen Healthcare & <span>Video Telemedicine</span></h1>
-                    <p>Experience seamless hospital appointment management, real-time doctor scheduling, electronic prescriptions, and secure WebRTC video consultations.</p>
+                    <h1>Hospital Management & <span>Appointment Platform</span></h1>
+                    <p>Manage appointments, doctor workflows, digital prescriptions, and patient records through a role-based web application.</p>
                     <div class="d-flex justify-content-center gap-3 flex-wrap">
                         <a href="register.php" class="btn btn-hero-primary">
                             <i class="fas fa-user-plus me-2"></i> Register as Patient
@@ -385,8 +385,8 @@
                 <div class="col-md-4">
                     <div class="feature-card">
                         <div class="feature-icon"><i class="fas fa-video"></i></div>
-                        <h4>WebRTC Video Telemedicine</h4>
-                        <p>High-definition, secure peer-to-peer video consultations bridging distance between patients and specialized doctors.</p>
+                        <h4>Video Consultation Interface</h4>
+                        <p>A video-consultation interface is included in the project; live calls are temporarily disabled until secure server-side token generation is configured.</p>
                     </div>
                 </div>
 
@@ -402,27 +402,28 @@
         </div>
     </section>
 
-    <!-- STATS SECTION -->
-    <section class="stats text-center">
+    <!-- PLATFORM CAPABILITIES (descriptive labels, not unverified usage statistics) -->
+    <section class="stats text-center" aria-label="Platform capabilities">
         <div class="container">
             <div class="row">
                 <div class="col-md-3 stat-item">
-                    <div class="stat-number">500+</div>
-                    <div class="stat-label">Verified Specialists</div>
+                    <div class="stat-number"><i class="fas fa-calendar-check" aria-hidden="true"></i></div>
+                    <div class="stat-label">Appointment Management</div>
                 </div>
                 <div class="col-md-3 stat-item">
-                    <div class="stat-number">10K+</div>
-                    <div class="stat-label">Active Patients</div>
+                    <div class="stat-number"><i class="fas fa-user-shield" aria-hidden="true"></i></div>
+                    <div class="stat-label">Role-Based Access</div>
                 </div>
                 <div class="col-md-3 stat-item">
-                    <div class="stat-number">50+</div>
-                    <div class="stat-label">Medical Specialities</div>
+                    <div class="stat-number"><i class="fas fa-file-prescription" aria-hidden="true"></i></div>
+                    <div class="stat-label">Digital Prescriptions</div>
                 </div>
                 <div class="col-md-3 stat-item">
-                    <div class="stat-number">24/7</div>
-                    <div class="stat-label">Secure Access</div>
+                    <div class="stat-number"><i class="fas fa-credit-card" aria-hidden="true"></i></div>
+                    <div class="stat-label">Manual Payment Review</div>
                 </div>
             </div>
+            <p class="small text-white-50 mt-3 mb-0">Video consultations are currently unavailable while secure server-side token generation is being implemented.</p>
         </div>
     </section>
 
