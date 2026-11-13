@@ -1,85 +1,104 @@
 <?php
-include 'db/connection.php';
 session_start();
+require_once 'db/connection.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+function loginRedirect($message) {
+    echo '<script>alert(' . json_encode($message) . '); window.location="login.php";</script>';
+    exit();
+}
 
-    // Inputs ko clean aur escape karein
-    $email    = trim($_POST['email']);
-    $password = $_POST['password']; // Raw password for verification
-    $role     = trim($_POST['role']);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: login.php');
+    exit();
+}
 
-    // SQL Injection se bachane ke liye escape karein
-    $email_clean = mysqli_real_escape_string($conn, $email);
-    $role_clean  = mysqli_real_escape_string($conn, $role);
+$email = strtolower(trim($_POST['email'] ?? ''));
+$password = $_POST['password'] ?? '';
+$role = trim($_POST['role'] ?? '');
 
-    // 1. Database se Email aur Role ke mutabiq User fetch karein
-    $sql = "SELECT * FROM users 
-            WHERE email='$email_clean' 
-            AND role='$role_clean'";
+$allowedRoles = ['admin', 'doctor', 'patient'];
+if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === '' || !in_array($role, $allowedRoles, true)) {
+    loginRedirect('Please enter valid login details.');
+}
 
-    $result = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare(
+    $conn,
+    "SELECT u.id, u.fullname, u.email, u.password, u.role, u.status,
+            d.status AS doctor_status
+     FROM users u
+     LEFT JOIN doctors d ON d.user_id = u.id
+     WHERE u.email = ? AND u.role = ?
+     LIMIT 1"
+);
 
-    if ($result && mysqli_num_rows($result) > 0) {
-        $user = mysqli_fetch_assoc($result);
+if (!$stmt) {
+    error_log('MediCare login query preparation failed: ' . mysqli_error($conn));
+    loginRedirect('Login is temporarily unavailable. Please try again.');
+}
 
-        // 2. Password Check (Bcrypt hash support + legacy MD5 fallback)
-        $isPasswordCorrect = false;
+mysqli_stmt_bind_param($stmt, 'ss', $email, $role);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+$user = $result ? mysqli_fetch_assoc($result) : null;
+mysqli_stmt_close($stmt);
 
-        if (password_verify($password, $user['password'])) {
-            $isPasswordCorrect = true; // Bcrypt Hash Match (New Users / Doctors)
-        } elseif ($user['password'] === md5($password)) {
-            $isPasswordCorrect = true; // Legacy MD5 Match (Old Users / Admin)
-        }
+if (!$user) {
+    loginRedirect('Invalid email, password or account type.');
+}
 
-        if ($isPasswordCorrect) {
+$storedHash = $user['password'];
+$passwordIsValid = password_verify($password, $storedHash);
+$needsHashUpgrade = false;
 
-            // 3. Status Check: Pending Admin Approval
-            if ($user['status'] === 'pending') {
-                echo "<script>
-                        alert('Your account is pending admin approval! Please wait for approval.');
-                        window.location='login.php';
-                      </script>";
-                exit();
-            }
+// Temporary compatibility for legacy MD5 accounts.
+// Successful legacy login upgrades the password to PASSWORD_DEFAULT.
+if (!$passwordIsValid && hash_equals(md5($password), (string) $storedHash)) {
+    $passwordIsValid = true;
+    $needsHashUpgrade = true;
+}
 
-            // 4. Status Check: Blocked User
-            if ($user['status'] === 'blocked') {
-                echo "<script>
-                        alert('Your account is blocked! Contact admin.');
-                        window.location='login.php';
-                      </script>";
-                exit();
-            }
+if (!$passwordIsValid) {
+    loginRedirect('Invalid email, password or account type.');
+}
 
-            // 5. Complete Session Set
-            $_SESSION['user_id']    = $user['id'];
-            $_SESSION['user_name']  = $user['fullname'];
-            $_SESSION['user_role']  = $user['role'];
-            $_SESSION['user_email'] = $user['email'];
+if ($user['status'] !== 'active') {
+    if ($user['status'] === 'pending') {
+        loginRedirect('Your account is pending approval. Please wait for admin approval.');
+    }
+    loginRedirect('Your account is not active. Please contact the administrator.');
+}
 
-            // 6. Role-Based Dashboard Redirection
-            if ($role === 'admin') {
-                header("Location: admin/dashboard.php");
-            } elseif ($role === 'doctor') {
-                header("Location: doctor/dashboard.php");
-            } else {
-                header("Location: patient/dashboard.php");
-            }
-            exit();
+// Doctor approval is stored separately in the doctors table.
+if ($role === 'doctor' && $user['doctor_status'] !== 'active') {
+    loginRedirect('Your doctor account is pending approval or inactive.');
+}
 
-        } else {
-            echo "<script>
-                    alert('Invalid password! Please try again.');
-                    window.location='login.php';
-                  </script>";
-        }
-
+if ($needsHashUpgrade || password_needs_rehash($storedHash, PASSWORD_DEFAULT)) {
+    $newHash = password_hash($password, PASSWORD_DEFAULT);
+    $update = mysqli_prepare($conn, 'UPDATE users SET password = ? WHERE id = ?');
+    if ($update) {
+        mysqli_stmt_bind_param($update, 'si', $newHash, $user['id']);
+        mysqli_stmt_execute($update);
+        mysqli_stmt_close($update);
     } else {
-        echo "<script>
-                alert('Invalid email or role selection!');
-                window.location='login.php';
-              </script>";
+        error_log('MediCare password hash upgrade failed: ' . mysqli_error($conn));
     }
 }
+
+// Prevent session fixation after successful authentication.
+session_regenerate_id(true);
+
+$_SESSION['user_id'] = (int) $user['id'];
+$_SESSION['user_name'] = $user['fullname'];
+$_SESSION['user_role'] = $user['role'];
+$_SESSION['user_email'] = $user['email'];
+
+$dashboards = [
+    'admin' => 'admin/dashboard.php',
+    'doctor' => 'doctor/dashboard.php',
+    'patient' => 'patient/dashboard.php'
+];
+
+header('Location: ' . $dashboards[$user['role']]);
+exit();
 ?>
