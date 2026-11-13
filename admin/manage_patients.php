@@ -452,25 +452,6 @@ $patients = mysqli_query($conn,
                                 <?php endif; ?>
                                 <button name="action" value="delete" class="btn-action btn-delete" onclick="return confirm('Permanently delete this patient account and all linked medical records?')"><i class="fas fa-trash-alt"></i> Delete</button>
                             </form>
-/td>
-                        <td>
-                            <?php if($row['status'] == 'active'): ?>
-                                <a href="patient_action.php?id=<?php echo $row['id']; ?>&action=block"
-                                   onclick="return confirm('Block this patient account?')"
-                                   class="btn-action btn-block">
-                                   <i class="fas fa-ban"></i> Block
-                                </a>
-                            <?php else: ?>
-                                <a href="patient_action.php?id=<?php echo $row['id']; ?>&action=unblock"
-                                   class="btn-action btn-unblock">
-                                   <i class="fas fa-unlock"></i> Unblock
-                                </a>
-                            <?php endif; ?>
-                            <a href="patient_action.php?id=<?php echo $row['id']; ?>&action=delete"
-                               onclick="return confirm('Permanently delete this patient account and all linked medical records?')"
-                               class="btn-action btn-delete">
-                               <i class="fas fa-trash-alt"></i> Delete
-                            </a>
                         </td>
                     </tr>
                 <?php endwhile; ?>
