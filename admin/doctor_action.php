@@ -38,8 +38,9 @@ if ($action === 'approve') {
     mysqli_stmt_bind_param($u, 'i', $id); mysqli_stmt_execute($u); mysqli_stmt_close($u);
     $d = mysqli_prepare($conn, "UPDATE doctors SET status='active' WHERE user_id=?");
     mysqli_stmt_bind_param($d, 'i', $id); mysqli_stmt_execute($d); mysqli_stmt_close($d);
-} elseif ($action === 'block' || $action === 'unblock') {
-    $status = $action === 'block' ? 'blocked' : 'active';
+} elseif (in_array($action, ['block', 'unblock', 'reject'], true)) {
+    // Rejecting a registration disables the account without destroying its records.
+    $status = in_array($action, ['block', 'reject'], true) ? 'blocked' : 'active';
     $u = mysqli_prepare($conn, "UPDATE users SET status=? WHERE id=? AND role='doctor'");
     mysqli_stmt_bind_param($u, 'si', $status, $id); mysqli_stmt_execute($u); mysqli_stmt_close($u);
 } else {
