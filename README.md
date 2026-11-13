@@ -6,7 +6,7 @@ The application provides separate workflows for patients, doctors, and administr
 
 ## Main Features
 
-- **Patient module:** Registration, login, doctor browsing, appointment booking, appointment history, profile management, payment workflow, video consultation access, prescription viewing, and doctor ratings.
+- **Patient module:** Registration, login, doctor browsing, appointment booking, appointment history, profile management, manual payment-reference workflow, prescription viewing, and doctor ratings.
 - **Doctor module:** Doctor registration and approval workflow, profile and appointment management, patient-related actions, video consultations, and prescription creation.
 - **Admin module:** Dashboard and management workflows for doctors, patients, and appointments.
 - **Video consultations:** The interface is present, but live calls and video appointment booking are disabled until secure server-side token generation is implemented and configured.
