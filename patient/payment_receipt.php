@@ -204,8 +204,8 @@ if (!$payment) {
         }
 
         .status-badge {
-            background: #dcfce7;
-            color: #15803d;
+            background: #fef3c7;
+            color: #92400e;
             padding: 6px 18px;
             border-radius: 50px;
             font-weight: 700;
@@ -298,8 +298,8 @@ if (!$payment) {
         <div class="check-icon">
             <i class="fas fa-check"></i>
         </div>
-        <h3>Payment Successful!</h3>
-        <p>Your consultation fee transaction has been securely processed.</p>
+        <h3><?php echo $payment['status'] === 'completed' ? 'Payment Verified' : ($payment['status'] === 'failed' ? 'Payment Not Verified' : 'Payment Submitted'); ?></h3>
+        <p><?php echo $payment['status'] === 'completed' ? 'Your payment has been verified by the administrator.' : ($payment['status'] === 'failed' ? 'The submitted payment reference was not verified. Please contact the administrator.' : 'Your reference has been submitted and is awaiting administrator verification.'); ?></p>
     </div>
 
     <!-- Body -->
@@ -314,7 +314,7 @@ if (!$payment) {
         <!-- Status -->
         <div class="text-center mb-3">
             <span class="status-badge">
-                <i class="fas fa-check-circle me-1"></i> Verified & Paid
+                <?php if ($payment['status'] === 'completed'): ?><i class="fas fa-check-circle me-1"></i> Verified & Paid<?php elseif ($payment['status'] === 'failed'): ?><i class="fas fa-times-circle me-1"></i> Not Verified<?php else: ?><i class="fas fa-hourglass-half me-1"></i> Awaiting Verification<?php endif; ?>
             </span>
         </div>
 
@@ -350,7 +350,7 @@ if (!$payment) {
 
         <!-- Total Row -->
         <div class="total-row">
-            <span class="label">Total Paid Amount</span>
+            <span class="label"><?php echo $payment['status'] === 'completed' ? 'Verified Amount' : 'Amount Submitted'; ?></span>
             <span class="value">Rs. <?php echo number_format($payment['amount'], 0); ?></span>
         </div>
 
@@ -367,7 +367,7 @@ if (!$payment) {
     <!-- Footer -->
     <div class="receipt-footer">
         <p class="fw-bold text-dark mb-1">MediCare Telemedicine & Hospital Management System</p>
-        <p>Government Degree College Hayatabad, Peshawar &bull; Electronically Generated Receipt</p>
+        <p>Government Degree College Hayatabad, Peshawar &bull; Submission receipt only; this is not proof of payment until status is Verified & Paid.</p>
     </div>
 
 </div>
