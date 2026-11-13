@@ -4,8 +4,18 @@ require_once 'db/connection.php';
 
 $error_msg = '';
 $success_msg = '';
+if (empty($_SESSION['register_csrf_token'])) {
+    $_SESSION['register_csrf_token'] = bin2hex(random_bytes(32));
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    if (empty($_SESSION['register_csrf_token']) || !hash_equals($_SESSION['register_csrf_token'], $csrfToken)) {
+        http_response_code(403);
+        exit('Invalid request token. Please reload the registration page.');
+    }
+    unset($_SESSION['register_csrf_token']);
+
     $fullname = trim($_POST['fullname'] ?? '');
     $email = strtolower(trim($_POST['email'] ?? ''));
     $phone = trim($_POST['phone'] ?? '');
@@ -26,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_msg = 'Please enter a valid email address!';
     } elseif ($password !== $cpassword) {
         $error_msg = 'Passwords do not match!';
-    } elseif (strlen($password) < 6) {
-        $error_msg = 'Password must be at least 6 characters long!';
+    } elseif (strlen($password) < 8) {
+        $error_msg = 'Password must be at least 8 characters long!';
     } elseif (strlen($fullname) > 100 || strlen($email) > 100 || strlen($phone) > 20) {
         $error_msg = 'One or more fields exceed the allowed length.';
     } else {
@@ -365,6 +375,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form action="register.php" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['register_csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
 
             <!-- Hidden Input for Selected Role -->
             <input type="hidden" name="role" id="selectedRole" value="patient">
