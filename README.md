@@ -74,7 +74,7 @@ The repository includes the `vendor/` directory and Composer configuration for P
 
 ### Database
 
-The included connection file currently uses a local XAMPP-style configuration (`localhost`, MySQL user `root`, and an empty password). Change these values to match your environment. Do not use default development credentials in a production deployment.
+For local XAMPP use, the connection file defaults to `localhost`, user `root`, an empty password, and database `hospital_db`. For hosted environments, set the `MEDICARE_DB_*` environment variables listed above. Never use default development credentials in production.
 
 ### Email
 
