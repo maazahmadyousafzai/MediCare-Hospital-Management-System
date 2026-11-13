@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 // Access Control: Ensure only authenticated Patients can access
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
@@ -48,6 +49,11 @@ if (mysqli_num_rows($already_res) > 0) {
 
 // Handle Form Submission
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+        http_response_code(403);
+        exit('Invalid request token.');
+    }
     $rating = intval($_POST['rating']);
     $review = mysqli_real_escape_string($conn, trim($_POST['review']));
     $doc_id = intval($apt['doctor_id']);
@@ -405,6 +411,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </div>
 
         <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
 
             <!-- Star Rating Section -->
             <div class="star-section">
