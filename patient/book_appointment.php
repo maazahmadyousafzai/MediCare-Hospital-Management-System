@@ -15,7 +15,7 @@ $patient_id = intval($_SESSION['user_id']);
 $doctors_query = "SELECT u.id, u.fullname, d.specialization, d.qualification, d.experience
                   FROM users u
                   JOIN doctors d ON u.id = d.user_id
-                  WHERE u.role='doctor' AND u.status='active'
+                  WHERE u.role='doctor' AND u.status='active' AND d.status='active'
                   ORDER BY u.fullname ASC";
 $doctors = mysqli_query($conn, $doctors_query);
 ?>
@@ -587,7 +587,7 @@ $doctors = mysqli_query($conn, $doctors_query);
                     </label>
                     <select class="form-select" name="type" required>
                         <option value="in-person">🏥 In-Person Physical Visit</option>
-                        <option value="video-call">🎥 Encrypted Video Call</option>
+                        <option value="video-call" disabled>🎥 Video Call (Temporarily Unavailable)</option>
                     </select>
                 </div>
 
