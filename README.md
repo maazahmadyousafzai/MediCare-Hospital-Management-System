@@ -62,8 +62,8 @@ MediCare-Hospital-Management-System/
 2. Download or clone this repository into XAMPP's `htdocs` directory.
 3. Open phpMyAdmin at `http://localhost/phpmyadmin`.
 4. Create a database named **hospital_db**.
-5. Select the database and use **Import** to import `db/hospital_db.sql`.
-6. Open `db/connection.php` and set the host, database name, username, and password to match your local MySQL/MariaDB configuration.
+5. Select the database and use **Import** to import `db/hospital_db.sql`. This SQL file creates the tables and relationships only; sample user and medical records have been removed from the public dump for privacy.
+6. The connection file uses local XAMPP defaults. For another environment, configure `MEDICARE_DB_HOST`, `MEDICARE_DB_USERNAME`, `MEDICARE_DB_PASSWORD`, and `MEDICARE_DB_NAME` as server environment variables.
 7. Open the project in your browser at:
 
    `http://localhost/MediCare-Hospital-Management-System/`
@@ -78,7 +78,7 @@ The included connection file currently uses a local XAMPP-style configuration (`
 
 ### Email
 
-Email delivery depends on valid SMTP credentials in `db/email.php`. Configure credentials securely for your own environment; do not commit Gmail app passwords or other secrets to GitHub. Review the email configuration before expecting notification emails to work.
+Email delivery requires the server environment variables `MEDICARE_SMTP_USERNAME`, `MEDICARE_SMTP_PASSWORD`, and (optionally) `MEDICARE_ADMIN_EMAIL` / `MEDICARE_ADMIN_NAME`. Do not commit Gmail app passwords or other secrets to GitHub. Without SMTP credentials, the application skips email delivery and records a server-side error.
 
 ### Video consultations
 
