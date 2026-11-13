@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     header("Location: ../login.php");
@@ -448,14 +449,19 @@ $doctors = mysqli_query($conn,
                         <td><span class="fw-semibold text-dark"><?php echo htmlspecialchars($row['qualification']); ?></span></td>
                         <td><strong><?php echo htmlspecialchars($row['experience']); ?></strong> yrs</td>
                         <td>
-                            <?php if($row['status'] == 'pending'): ?>
-                                <span class="badge-pill badge-pending"><i class="fas fa-clock"></i> Pending</span>
-                            <?php elseif($row['status'] == 'active'): ?>
-                                <span class="badge-pill badge-active"><i class="fas fa-check-circle"></i> Active</span>
-                            <?php else: ?>
-                                <span class="badge-pill badge-blocked"><i class="fas fa-ban"></i> Blocked</span>
-                            <?php endif; ?>
-                        </td>
+                            <form method="POST" action="doctor_action.php" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                <?php if ($row['status'] === 'pending'): ?>
+                                    <button name="action" value="approve" class="btn-action btn-approve"><i class="fas fa-check"></i> Approve</button>
+                                <?php elseif ($row['status'] === 'active'): ?>
+                                    <button name="action" value="block" class="btn-action btn-block" onclick="return confirm('Block this doctor account?')"><i class="fas fa-ban"></i> Block</button>
+                                <?php else: ?>
+                                    <button name="action" value="unblock" class="btn-action btn-unblock"><i class="fas fa-unlock"></i> Unblock</button>
+                                <?php endif; ?>
+                                <button name="action" value="delete" class="btn-action btn-delete" onclick="return confirm('Permanently delete this doctor account and all linked records?')"><i class="fas fa-trash-alt"></i> Delete</button>
+                            </form>
+/td>
                         <td>
                             <?php if($row['status'] == 'pending'): ?>
                                 <a href="doctor_action.php?id=<?php echo $row['id']; ?>&action=approve"
