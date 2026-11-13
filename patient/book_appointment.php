@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 // Access Control: Ensure only logged-in Patients can access
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
@@ -545,6 +546,7 @@ $doctors = mysqli_query($conn, $doctors_query);
         </div>
 
         <form action="book_process.php" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION["csrf_token"], ENT_QUOTES, "UTF-8"); ?>">
             <input type="hidden" name="doctor_id" id="doctor_id_input">
 
             <div class="row g-3">
