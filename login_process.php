@@ -12,6 +12,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+$csrfToken = $_POST['csrf_token'] ?? '';
+if (empty($_SESSION['login_csrf_token']) || !hash_equals($_SESSION['login_csrf_token'], $csrfToken)) {
+    http_response_code(403);
+    exit('Invalid request token. Please reload the login page.');
+}
+unset($_SESSION['login_csrf_token']);
+
 $email = strtolower(trim($_POST['email'] ?? ''));
 $password = $_POST['password'] ?? '';
 $role = trim($_POST['role'] ?? '');
