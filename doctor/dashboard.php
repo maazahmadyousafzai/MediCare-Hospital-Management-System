@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 // Access Control: Ensure only authenticated Doctors can access
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
@@ -528,9 +529,11 @@ $todays       = mysqli_query($conn, $todays_query);
                         </td>
                         <td>
                             <?php if ($row['status'] == 'pending'): ?>
-                                <a href="confirm_appointment.php?id=<?php echo $row['id']; ?>" class="btn-confirm">
-                                    <i class="fas fa-check"></i> Confirm
-                                </a>
+                                <form method="POST" action="appointment_action.php" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                    <button type="submit" name="action" value="confirm" class="btn-confirm"><i class="fas fa-check"></i> Confirm</button>
+                                </form>
                             <?php endif; ?>
                         </td>
                     </tr>
