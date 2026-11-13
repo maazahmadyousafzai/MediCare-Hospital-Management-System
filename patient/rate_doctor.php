@@ -1,84 +1,145 @@
 <?php
 session_start();
-include '../db/connection.php';
-if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
+require_once '../db/connection.php';
 
-// Access Control: Ensure only authenticated Patients can access
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'patient') {
-    header("Location: ../login.php");
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'patient') {
+    header('Location: ../login.php');
+    exit();
+}
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$patientId = (int) $_SESSION['user_id'];
+$appointmentId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$appointmentId || $appointmentId < 1) {
+    header('Location: my_appointments.php');
     exit();
 }
 
-if (!isset($_GET['id'])) {
-    header("Location: my_appointments.php");
-    exit();
+$appointmentSql = "SELECT a.id, a.doctor_id, a.appointment_date, a.appointment_time,
+                          u.fullname AS doctor_name, d.specialization
+                   FROM appointments a
+                   INNER JOIN users u ON u.id = a.doctor_id AND u.role = 'doctor'
+                   LEFT JOIN doctors d ON d.user_id = a.doctor_id
+                   WHERE a.id = ? AND a.patient_id = ? AND a.status = 'completed'
+                   LIMIT 1";
+$appointmentStmt = mysqli_prepare($conn, $appointmentSql);
+if (!$appointmentStmt) {
+    error_log('MediCare rating lookup preparation failed: ' . mysqli_error($conn));
+    http_response_code(500);
+    exit('Unable to load this appointment.');
 }
-
-$appointment_id = intval($_GET['id']);
-$patient_id     = intval($_SESSION['user_id']);
-
-// Fetch Appointment details securely (must be completed)
-$apt_query = "SELECT a.*, u.fullname as doctor_name, d.specialization
-              FROM appointments a
-              JOIN users u ON a.doctor_id = u.id
-              LEFT JOIN doctors d ON a.doctor_id = d.user_id
-              WHERE a.id = $appointment_id 
-              AND a.patient_id = $patient_id 
-              AND a.status = 'completed'";
-
-$apt_res = mysqli_query($conn, $apt_query);
-$apt     = mysqli_fetch_assoc($apt_res);
+mysqli_stmt_bind_param($appointmentStmt, 'ii', $appointmentId, $patientId);
+mysqli_stmt_execute($appointmentStmt);
+$appointmentResult = mysqli_stmt_get_result($appointmentStmt);
+$apt = $appointmentResult ? mysqli_fetch_assoc($appointmentResult) : null;
+mysqli_stmt_close($appointmentStmt);
 
 if (!$apt) {
-    echo "<script>
-            alert('Invalid appointment record, unauthorized request, or appointment not yet completed!');
-            window.location='my_appointments.php';
-          </script>";
+    header('Location: my_appointments.php');
     exit();
 }
 
-// Check if rating already exists for this appointment
-$already_res = mysqli_query($conn, "SELECT id FROM ratings WHERE appointment_id = $appointment_id AND patient_id = $patient_id");
-if (mysqli_num_rows($already_res) > 0) {
-    echo "<script>
-            alert('You have already submitted a rating for this consultation!');
-            window.location='my_appointments.php';
-          </script>";
-    exit();
-}
-
-// Handle Form Submission
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrfToken = $_POST['csrf_token'] ?? '';
-    if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+    if (!is_string($csrfToken) || empty($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
         http_response_code(403);
         exit('Invalid request token.');
     }
-    $rating = intval($_POST['rating']);
-    $review = mysqli_real_escape_string($conn, trim($_POST['review']));
-    $doc_id = intval($apt['doctor_id']);
 
-    if ($rating < 1 || $rating > 5) {
-        echo "<script>alert('Please select a valid star rating between 1 and 5!'); window.history.back();</script>";
-        exit();
+    $rating = filter_input(INPUT_POST, 'rating', FILTER_VALIDATE_INT);
+    $review = trim((string) ($_POST['review'] ?? ''));
+    if ($rating === false || $rating === null || $rating < 1 || $rating > 5) {
+        http_response_code(400);
+        exit('Please select a rating between 1 and 5.');
+    }
+    if (strlen($review) > 2000) {
+        http_response_code(400);
+        exit('Your review must be 2,000 characters or fewer.');
     }
 
-    $insert_query = "INSERT INTO ratings (doctor_id, patient_id, appointment_id, rating, review)
-                     VALUES ($doc_id, $patient_id, $appointment_id, $rating, '$review')";
+    // Lock the appointment row so simultaneous submissions cannot create duplicate ratings.
+    mysqli_begin_transaction($conn);
+    try {
+        $lockStmt = mysqli_prepare(
+            $conn,
+            "SELECT id FROM appointments
+             WHERE id = ? AND patient_id = ? AND status = 'completed'
+             FOR UPDATE"
+        );
+        if (!$lockStmt) {
+            throw new RuntimeException('Unable to validate appointment.');
+        }
+        mysqli_stmt_bind_param($lockStmt, 'ii', $appointmentId, $patientId);
+        mysqli_stmt_execute($lockStmt);
+        $lockResult = mysqli_stmt_get_result($lockStmt);
+        $lockedAppointment = $lockResult ? mysqli_fetch_assoc($lockResult) : null;
+        mysqli_stmt_close($lockStmt);
+        if (!$lockedAppointment) {
+            throw new RuntimeException('This appointment is no longer eligible for a rating.');
+        }
 
-    if (mysqli_query($conn, $insert_query)) {
-        echo "<script>
-                alert('Thank you for your valuable feedback!');
-                window.location='my_appointments.php';
-              </script>";
+        $existingStmt = mysqli_prepare(
+            $conn,
+            'SELECT id FROM ratings WHERE appointment_id = ? AND patient_id = ? LIMIT 1'
+        );
+        if (!$existingStmt) {
+            throw new RuntimeException('Unable to check existing feedback.');
+        }
+        mysqli_stmt_bind_param($existingStmt, 'ii', $appointmentId, $patientId);
+        mysqli_stmt_execute($existingStmt);
+        $existingResult = mysqli_stmt_get_result($existingStmt);
+        $alreadyRated = $existingResult && mysqli_fetch_assoc($existingResult);
+        mysqli_stmt_close($existingStmt);
+        if ($alreadyRated) {
+            throw new RuntimeException('You have already rated this appointment.');
+        }
+
+        $insertStmt = mysqli_prepare(
+            $conn,
+            'INSERT INTO ratings (doctor_id, patient_id, appointment_id, rating, review)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        if (!$insertStmt) {
+            throw new RuntimeException('Unable to prepare your feedback.');
+        }
+        $doctorId = (int) $apt['doctor_id'];
+        mysqli_stmt_bind_param($insertStmt, 'iiiis', $doctorId, $patientId, $appointmentId, $rating, $review);
+        if (!mysqli_stmt_execute($insertStmt)) {
+            mysqli_stmt_close($insertStmt);
+            throw new RuntimeException('Unable to save your feedback.');
+        }
+        mysqli_stmt_close($insertStmt);
+        mysqli_commit($conn);
+        header('Location: my_appointments.php?rating=success');
         exit();
-    } else {
-        echo "<script>
-                alert('Database Error: Unable to submit feedback. Please try again.');
-                window.history.back();
-              </script>";
-        exit();
+    } catch (Throwable $e) {
+        mysqli_rollback($conn);
+        error_log('MediCare rating submission failed: ' . $e->getMessage());
+        http_response_code(400);
+        exit(htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
     }
+}
+
+$alreadyStmt = mysqli_prepare(
+    $conn,
+    'SELECT id FROM ratings WHERE appointment_id = ? AND patient_id = ? LIMIT 1'
+);
+if (!$alreadyStmt) {
+    error_log('MediCare existing-rating check failed: ' . mysqli_error($conn));
+    http_response_code(500);
+    exit('Unable to check existing feedback.');
+}
+mysqli_stmt_bind_param($alreadyStmt, 'ii', $appointmentId, $patientId);
+mysqli_stmt_execute($alreadyStmt);
+$alreadyResult = mysqli_stmt_get_result($alreadyStmt);
+$alreadyRated = $alreadyResult && mysqli_fetch_assoc($alreadyResult);
+mysqli_stmt_close($alreadyStmt);
+if ($alreadyRated) {
+    header('Location: my_appointments.php?rating=already-submitted');
+    exit();
 }
 ?>
 
