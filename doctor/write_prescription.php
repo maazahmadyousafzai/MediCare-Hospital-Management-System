@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db/connection.php';
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 
 // Access Control: Ensure only authenticated Doctors can access
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'doctor') {
@@ -46,6 +47,11 @@ if ($already) {
 
 // Handle Form Submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+        http_response_code(403);
+        exit('Invalid request token.');
+    }
     $diagnosis    = mysqli_real_escape_string($conn, trim($_POST['diagnosis']));
     $medicines    = mysqli_real_escape_string($conn, trim($_POST['medicines'])); // JSON encoded string
     $instructions = mysqli_real_escape_string($conn, trim($_POST['instructions']));
@@ -440,6 +446,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <!-- Prescription Form -->
         <form method="POST" id="presForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
 
             <!-- Diagnosis -->
             <div class="section-title">
