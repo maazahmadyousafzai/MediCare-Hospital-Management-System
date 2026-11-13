@@ -1,3 +1,9 @@
+<?php
+session_start();
+if (empty($_SESSION['login_csrf_token'])) {
+    $_SESSION['login_csrf_token'] = bin2hex(random_bytes(32));
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -380,6 +386,7 @@
             </div>
 
             <form action="login_process.php" method="POST" id="loginForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['login_csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
 
                 <!-- Hidden Input for Selected Role -->
                 <input type="hidden" name="role" id="selectedRole" value="patient">
