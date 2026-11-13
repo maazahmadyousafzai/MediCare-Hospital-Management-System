@@ -453,42 +453,14 @@ $appointments_res = mysqli_query($conn, $appointments_query);
 <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
 
 <script>
-    const APP_ID   = 2101106645;
-    const APP_SIGN = "94910155912595ae481875c2e881b62d9ecd6ce846adefcc7d708ce74b9f6302";
-
     const USER_ID   = "patient_<?php echo $_SESSION['user_id']; ?>";
     const USER_NAME = "<?php echo addslashes($_SESSION['user_name']); ?>";
 
     let zpInstance = null;
 
     function startCall(appointmentId, doctorName) {
-        const ROOM_ID = "medicare_room_" + appointmentId;
-
-        document.getElementById('videoCallRoom').style.display = 'block';
-
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-            APP_ID,
-            APP_SIGN,
-            ROOM_ID,
-            USER_ID,
-            USER_NAME
-        );
-
-        zpInstance = ZegoUIKitPrebuilt.create(kitToken);
-
-        zpInstance.joinRoom({
-            container: document.getElementById('myCallContainer'),
-            scenario: {
-                mode: ZegoUIKitPrebuilt.OneONoneCall,
-            },
-            showPreJoinView: true,
-            turnOnCameraWhenJoining: true,
-            turnOnMicrophoneWhenJoining: true,
-            showLeavingView: false,
-            onLeaveRoom: () => {
-                endCall();
-            }
-        });
+        // Calls remain disabled until a server-side Zego token endpoint is configured.
+        alert('Video calling is temporarily unavailable while secure server-side call authentication is configured.');
     }
 
     function endCall() {
