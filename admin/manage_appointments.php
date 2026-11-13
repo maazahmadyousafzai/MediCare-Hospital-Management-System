@@ -54,15 +54,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['appointment_action'],
     $allowedStatuses = ['confirmed', 'cancelled', 'completed'];
 
     if ($appointmentId && in_array($action, $allowedStatuses, true)) {
-        $updateStmt = mysqli_prepare($conn, 'UPDATE appointments SET status = ? WHERE id = ?');
+        // Enforce valid state transitions; admins cannot reopen or complete cancelled records.
+        $transitionSql = [
+            'confirmed' => "UPDATE appointments SET status = 'confirmed' WHERE id = ? AND status = 'pending'",
+            'cancelled' => "UPDATE appointments SET status = 'cancelled' WHERE id = ? AND status IN ('pending', 'confirmed')",
+            'completed' => "UPDATE appointments SET status = 'completed' WHERE id = ? AND status = 'confirmed'"
+        ];
+        $updateStmt = mysqli_prepare($conn, $transitionSql[$action]);
         if (!$updateStmt) {
             error_log('MediCare appointment update prepare failed: ' . mysqli_error($conn));
             http_response_code(500);
             exit('Unable to update appointment status.');
         }
-        mysqli_stmt_bind_param($updateStmt, 'si', $action, $appointmentId);
+        mysqli_stmt_bind_param($updateStmt, 'i', $appointmentId);
         mysqli_stmt_execute($updateStmt);
+        $changed = mysqli_stmt_affected_rows($updateStmt);
         mysqli_stmt_close($updateStmt);
+        $_SESSION['appointment_notice'] = $changed === 1
+            ? 'Appointment status updated.'
+            : 'Appointment was not changed because its current status does not allow that action.';
     }
 
     header('Location: manage_appointments.php');
