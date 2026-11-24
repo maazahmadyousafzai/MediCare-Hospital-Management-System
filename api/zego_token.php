@@ -108,12 +108,27 @@ $userName = ($role === 'patient')
     : 'Dr. ' . $appointment['doctor_name'];
 $roomId = (string) $appointment['id'];
 
-$tokenResult = \ZEGO\ZegoServerAssistant::generateToken04(
+// Bind the token to this appointment's room and explicitly grant
+// room login and stream publishing privileges.
+$tokenPayload = json_encode([
+    'room_id' => $roomId,
+    'privilege' => [
+        '1' => 1, // Login to room
+        '2' => 1  // Publish stream
+    ],
+    'stream_id_list' => []
+], JSON_UNESCAPED_SLASHES);
+
+if ($tokenPayload === false) {
+    sendJson(500, ['success' => false, 'message' => 'Could not prepare video permissions']);
+}
+
+$tokenResult = \\ZEGO\\ZegoServerAssistant::generateToken04(
     (int) $appId,
     $userId,
     $serverSecret,
     3600,
-    ''
+    $tokenPayload
 );
 
 if (
