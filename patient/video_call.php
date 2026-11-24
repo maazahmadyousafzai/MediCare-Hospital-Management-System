@@ -454,7 +454,6 @@ $appointments_res = mysqli_query($conn, $appointments_query);
 
 <script>
     const USER_ID   = "patient_<?php echo $_SESSION['user_id']; ?>";
-    const USER_NAME = "<?php echo addslashes($_SESSION['user_name']); ?>";
 
     let zpInstance = null;
 let callStarting = false;
