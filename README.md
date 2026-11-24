@@ -21,7 +21,7 @@ The application follows a three-tier architecture and uses role-based access for
 
 ## Video consultations
 
-The patient and doctor video-call pages request a short-lived Token04 token from `api/zego_token.php`. The endpoint checks the authenticated role, appointment ownership, and confirmed video-appointment status before generating a token on the server.
+The patient and doctor video-call pages request a short-lived Token04 token from `api/zego_token.php`. The endpoint checks the authenticated role, appointment ownership, and confirmed video-appointment status before generating a token on the server. It does not yet enforce a scheduled appointment-time join window.
 
 Video calling requires a private configuration file outside the public project directory:
 
