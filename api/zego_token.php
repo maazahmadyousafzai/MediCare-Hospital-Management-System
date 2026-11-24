@@ -95,6 +95,7 @@ if (
     sendJson(403, ['success' => false, 'message' => 'Appointment access denied']);
 }
 
+// Scheduled appointment-time enforcement is not implemented yet; only type and status are checked.
 if (
     $appointment['type'] !== 'video-call' ||
     $appointment['status'] !== 'confirmed'
