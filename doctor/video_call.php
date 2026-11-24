@@ -407,7 +407,7 @@ $appointments = mysqli_query($conn, $query);
                     </div>
                 </div>
                 <div>
-                    <button class="btn-join" onclick="startCall('<?php echo intval($apt['id']); ?>', '<?php echo htmlspecialchars(addslashes($apt['patient_name'])); ?>')">
+                    <button class="btn-join" onclick="startCall('<?php echo (int) $apt['id']; ?>')">
                         <i class="fas fa-video"></i> Launch Video Session
                     </button>
                 </div>
