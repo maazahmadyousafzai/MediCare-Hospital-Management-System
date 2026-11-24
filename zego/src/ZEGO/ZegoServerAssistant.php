@@ -3,17 +3,15 @@ namespace ZEGO;
 
 class ZegoServerAssistant {
     private static function makeNonce() {
-        return rand();
+        return random_int(1, PHP_INT_MAX);
     }
 
     private static function makeRandomIv($number = 16) {
-        $str = "0123456789abcdefghijklmnopqrstuvwxyz";
-        $result = [];
-        $strLen = strlen($str);
-        for ($i = 0; $i < $number; $i++) {
-            $result[] = $str[rand(0, $strLen - 1)];
+        if ($number < 1) {
+            throw new \\InvalidArgumentException('IV length must be positive.');
         }
-        return implode('', $result);
+
+        return random_bytes($number);
     }
 
     public static function generateToken04($appId, $userId, $secret, $effectiveTimeInSeconds, $payload) {
