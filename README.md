@@ -78,7 +78,7 @@ docs/                   Project submission notes
 4. Open phpMyAdmin and create a new database named `hospital_db`.
 5. Import `db/hospital_db.sql` into the new database. The SQL file is schema-only and does not include sample patient or appointment records.
 6. For local XAMPP defaults, `db/connection.php` uses `localhost`, user `root`, an empty password, and `hospital_db`. For another environment, configure `MEDICARE_DB_HOST`, `MEDICARE_DB_USERNAME`, `MEDICARE_DB_PASSWORD`, and `MEDICARE_DB_NAME`.
-7. Configure SMTP only when needed. Set `MEDICARE_SMTP_USERNAME`, `MEDICARE_SMTP_PASSWORD`, and optional `MEDICARE_ADMIN_EMAIL` / `MEDICARE_ADMIN_NAME` environment variables. For local XAMPP use, an optional private file at `C:\\xampp\\secure\\medicare-smtp.php` can return an array with `username`, `password`, `admin_email`, and `admin_name` keys. If neither source is configured, email sending returns `false` and logs that SMTP is not configured; the helper does not expose credentials to the browser.
+7. Configure SMTP only when needed. Set `MEDICARE_SMTP_USERNAME`, `MEDICARE_SMTP_PASSWORD`, and optional `MEDICARE_ADMIN_EMAIL` / `MEDICARE_ADMIN_NAME` environment variables. For local XAMPP use, an optional private file at `C:\xampp\secure\medicare-smtp.php` can return an array with `username`, `password`, `admin_email`, and `admin_name` keys. If neither source is configured, email sending returns `false` and logs that SMTP is not configured; the helper does not expose credentials to the browser.
 8. Configure ZEGOCLOUD only when needed by creating the private file described above.
 9. Open the project in a browser using the folder name under `http://localhost/`.
 
