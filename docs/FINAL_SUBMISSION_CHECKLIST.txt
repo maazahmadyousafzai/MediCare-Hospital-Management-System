@@ -1,0 +1,39 @@
+MEDICARE — FINAL SUBMISSION CHECKLIST
+Author: Maaz Ahmad
+
+PACKAGE
+[ ] Extract ZIP into a NEW folder under C:\xampp\htdocs\
+[ ] Do not overwrite or delete the existing project folder
+[ ] Keep a separate backup of the current MySQL database
+
+LOCAL STARTUP
+[ ] Start Apache and MySQL in XAMPP
+[ ] Create a fresh database named hospital_db only if a fresh setup is intended
+[ ] Import db/hospital_db.sql into that fresh database
+[ ] Verify db/connection.php credentials
+[ ] Open the project using its extracted folder name under http://localhost/
+
+DEMO FLOW
+[ ] Patient registration/login
+[ ] Patient searches/browses doctors
+[ ] Patient books an appointment
+[ ] Doctor views and processes appointment
+[ ] Admin reviews/manages appointment
+[ ] Patient checks appointment history
+[ ] Doctor creates a prescription; patient views it
+[ ] Patient submits a DEMO payment reference; admin verifies it as a simulated test only
+[ ] Confirm no real-money claim is made for demo payment
+[ ] SMTP test only after private SMTP configuration is installed
+[ ] Video call test only after private ZEGOCLOUD configuration is installed
+
+PRESENTATION
+[ ] Explain Patient, Doctor, and Admin roles
+[ ] Explain PHP/MySQL architecture and database tables
+[ ] Explain booking and admin verification workflow
+[ ] State clearly which integrations were tested live on the presentation machine
+[ ] Do not claim syntax checks equal full functional testing
+
+SECURITY
+[ ] Never share SMTP app passwords or ZEGOCLOUD ServerSecret values
+[ ] Never import the supplied SQL over an existing database without a backup
+[ ] Do not use this academic system for real patient records without further review

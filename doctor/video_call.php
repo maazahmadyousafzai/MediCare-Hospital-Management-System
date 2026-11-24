@@ -407,7 +407,7 @@ $appointments = mysqli_query($conn, $query);
                     </div>
                 </div>
                 <div>
-                    <button class="btn-join" onclick="startCall('<?php echo intval($apt['id']); ?>', '<?php echo htmlspecialchars(addslashes($apt['patient_name'])); ?>')">
+                    <button class="btn-join" onclick="startCall('<?php echo (int) $apt['id']; ?>')">
                         <i class="fas fa-video"></i> Launch Video Session
                     </button>
                 </div>
@@ -423,13 +423,72 @@ $appointments = mysqli_query($conn, $query);
 
 <script>
     const USER_ID   = "doctor_<?php echo intval($_SESSION['user_id']); ?>";
-    const USER_NAME = "Dr. <?php echo htmlspecialchars(addslashes($_SESSION['user_name'])); ?>";
 
     let zpInstance = null;
+let callStarting = false;
 
-    function startCall(appointmentId, patientName) {
-        // Calls remain disabled until a server-side Zego token endpoint is configured.
-        alert('Video calling is temporarily unavailable while secure server-side call authentication is configured.');
+    async function startCall(appointmentId) {
+        if (zpInstance || callStarting) return;
+
+        if (typeof ZegoUIKitPrebuilt === 'undefined') {
+            alert('ZEGOCLOUD SDK failed to load. Please refresh.');
+            return;
+        }
+
+        callStarting = true;
+        const room = document.getElementById('videoCallRoom');
+        const container = document.getElementById('myCallContainer');
+        room.style.display = 'block';
+        container.innerHTML = '<div style="color:white;text-align:center;padding:40px;">Connecting...</div>';
+
+        try {
+            const response = await fetch('../api/zego_token.php', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appointment_id: appointmentId })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Video authentication failed.');
+            }
+
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForProduction(
+                Number(data.app_id),
+                data.token,
+                data.room_id,
+                data.user_id,
+                data.user_name
+            );
+
+            zpInstance = ZegoUIKitPrebuilt.create(kitToken);
+            container.innerHTML = '';
+
+            await zpInstance.joinRoom({
+                container: container,
+                scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+                maxUsers: 2,
+                showPreJoinView: true,
+                turnOnCameraWhenJoining: true,
+                turnOnMicrophoneWhenJoining: true,
+                showMyCameraToggleButton: true,
+                showMyMicrophoneToggleButton: true,
+                showTextChat: true,
+                showUserList: true
+            });
+        } catch (error) {
+            console.error('Video call error:', error);
+            if (zpInstance) {
+                zpInstance.destroy();
+                zpInstance = null;
+            }
+            room.style.display = 'none';
+            container.innerHTML = '';
+            alert(error.message || 'Unable to start video consultation.');
+        } finally {
+            callStarting = false;
+        }
     }
 
     function endCall() {
