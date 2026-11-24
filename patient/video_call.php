@@ -438,7 +438,7 @@ $appointments_res = mysqli_query($conn, $appointments_query);
                         </div>
                     </div>
 
-                    <button class="btn-join" onclick="startCall('<?php echo $apt['id']; ?>', '<?php echo addslashes($apt['doctor_name']); ?>')">
+                    <button class="btn-join" onclick="startCall('<?php echo (int) $apt['id']; ?>')">
                         <i class="fas fa-video"></i> Join Encrypted Call
                     </button>
 
