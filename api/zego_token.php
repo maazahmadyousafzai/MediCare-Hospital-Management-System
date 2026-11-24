@@ -123,7 +123,7 @@ if ($tokenPayload === false) {
     sendJson(500, ['success' => false, 'message' => 'Could not prepare video permissions']);
 }
 
-$tokenResult = \\ZEGO\\ZegoServerAssistant::generateToken04(
+$tokenResult = \ZEGO\ZegoServerAssistant::generateToken04(
     (int) $appId,
     $userId,
     $serverSecret,
