@@ -7,10 +7,6 @@ class ZegoServerAssistant {
     }
 
     private static function makeRandomIv($number = 16) {
-        if ($number < 1) {
-            throw new InvalidArgumentException('IV length must be positive.');
-        }
-
         return random_bytes($number);
     }
 
