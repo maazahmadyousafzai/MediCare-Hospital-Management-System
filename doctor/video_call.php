@@ -423,7 +423,6 @@ $appointments = mysqli_query($conn, $query);
 
 <script>
     const USER_ID   = "doctor_<?php echo intval($_SESSION['user_id']); ?>";
-    const USER_NAME = "Dr. <?php echo htmlspecialchars(addslashes($_SESSION['user_name'])); ?>";
 
     let zpInstance = null;
 let callStarting = false;
