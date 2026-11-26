@@ -477,15 +477,7 @@ $appointments = mysqli_query($conn, $query);
                                     <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
                                     <button name="action" value="complete" class="action-btn btn-complete"><i class="fas fa-flag-checkered"></i> Complete</button>
                                 </form>
-                                <?php if (!$pres): ?>
-                                    <a href="write_prescription.php?id=<?php echo $row['id']; ?>" class="action-btn btn-prescribe">
-                                        <i class="fas fa-pills"></i> Prescribe
-                                    </a>
-                                <?php else: ?>
-                                    <a href="view_prescription.php?id=<?php echo $pres['id']; ?>" class="action-btn btn-rx">
-                                        <i class="fas fa-file-medical"></i> View Rx
-                                    </a>
-                                <?php endif; ?>
+                                <small class="text-muted d-block mt-1">Complete this appointment to enable prescription writing.</small>
 
                             <?php elseif ($row['status'] == 'completed'): ?>
                                 <?php if (!$pres): ?>
